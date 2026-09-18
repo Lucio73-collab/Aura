@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: https://i.scdn.co; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self'" />
+<title>Aura</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="css/motion.css" />
+<link rel="stylesheet" href="css/chrome.css" />
+<link rel="stylesheet" href="css/nowplaying.css" />
+<link rel="stylesheet" href="css/browse.css" />
+<link rel="stylesheet" href="css/detail.css" />
+<link rel="stylesheet" href="css/artiststage.css" />
+<link rel="stylesheet" href="css/stats.css" />
+</head>
+<body>
+<div id="app">
+
+  <aside id="sidebar">
+    <div class="brand"><canvas class="brand-fx" id="brandFx"></canvas>Aura
+      <div class="nav-hist">
+        <button class="icon-btn hist-btn" id="btnBack" title="Back (Alt+Left)" disabled></button>
+        <button class="icon-btn hist-btn" id="btnFwd" title="Forward (Alt+Right)" disabled></button>
+      </div>
+    </div>
+    <div class="search-wrap" id="searchWrap">
+      <input id="searchInput" type="text" placeholder="Search" autocomplete="off" spellcheck="false" />
+    </div>
+    <nav id="mainNav"></nav>
+    <div class="playlists-head"><span>Playlists</span><button id="btnNewPlaylist" class="icon-btn" title="New playlist"></button></div>
+    <nav id="playlistNav"></nav>
+    <div class="side-foot">
+      <button class="side-foot-btn" id="btnMini">Mini player</button>
+      <button class="side-foot-btn" id="btnGoSettings">Settings</button>
+    </div>
+  </aside>
+
+  <main id="content" tabindex="-1"></main>
+  <button id="locateBtn" class="locate-btn" data-action="locate-playing" title="Scroll to the song that's playing"></button>
+
+  <aside id="queuePanel" data-mode="queue">
+    <div class="qp-head">
+      <div class="qp-tabs">
+        <button class="qp-tab active" data-action="panel-tab" data-tab="queue">Queue</button>
+        <button class="qp-tab" data-action="panel-tab" data-tab="lyrics">Lyrics</button>
+      </div>
+      <button class="text-btn" id="qpClear" data-action="clear-queue">Clear</button>
+      <button class="icon-btn" id="qpClose" title="Close"></button>
+    </div>
+    <div id="queueList"></div>
+    <div class="np-lyrics docked" id="dockLyrics"></div>
+  </aside>
+
+  <footer id="playerBar" class="empty">
+    <div class="pb-left" id="pbLeft">
+      <div class="pb-art" id="pbArt" title="Open Now Playing"></div>
+      <div class="pb-meta">
+        <div class="pb-title" id="pbTitle">Not Playing</div>
+        <div class="pb-artist" id="pbArtist"></div>
+      </div>
+      <span class="sp-mark" id="pbSpBadge" hidden title="Playing on Spotify Connect"><svg viewBox="0 0 24 24" class="sp-ic" role="img" aria-label="Spotify"><circle cx="12" cy="12" r="10"/><path d="M7 10.2c2.8-.8 6.6-.6 9 .8M7.4 13.2c2.3-.6 5.5-.5 7.6.7M7.8 16c1.9-.4 4.4-.3 6 .6" fill="none" stroke="#0b0c0e" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+      <button class="icon-btn like" id="btnLike" title="Like"></button>
+      <div class="dj-chip" id="pbDj" title="DJ is on, click to stop"><span class="dj-orb"></span>DJ</div>
+    </div>
+    <div class="pb-center">
+      <div class="pb-controls">
+        <button class="icon-btn ctl" id="btnShuffle" title="Shuffle"></button>
+        <button class="icon-btn ctl" id="btnPrev" title="Previous"></button>
+        <button class="play-btn" id="btnPlay" title="Play or pause"></button>
+        <button class="icon-btn ctl" id="btnNext" title="Next"></button>
+        <button class="icon-btn ctl" id="btnRepeat" title="Repeat"></button>
+      </div>
+      <div class="pb-progress">
+        <span class="time" id="tCur">0:00</span>
+        <input type="range" class="slider" id="seek" min="0" max="1000" value="0" aria-label="Seek" />
+        <span class="time" id="tDur">0:00</span>
+      </div>
+    </div>
+    <div class="pb-right">
+      <button class="icon-btn ctl" id="btnSmart" title="Smart Shuffle (mixes in suggestions)"></button>
+      <button class="icon-btn ctl" id="btnLyrics" title="Lyrics"></button>
+      <button class="icon-btn ctl" id="btnQueue" title="Queue"></button>
+      <div class="vol">
+        <button class="icon-btn ctl" id="btnMute" title="Mute"></button>
+        <input type="range" class="slider" id="vol" min="0" max="100" value="90" aria-label="Volume" />
+      </div>
+      <button class="icon-btn ctl" id="btnExpand" title="Now Playing"></button>
+    </div>
+  </footer>
+
+  <section id="nowPlaying" class="paused" aria-hidden="true">
+    <div class="np-bg"><img id="npBg" alt="" /></div>
+    <div class="np-aurora"><span></span><span></span><span></span></div>
+    <canvas class="np-fx" id="npFx"></canvas>
+    <button class="icon-btn np-close" id="npClose" title="Minimize (Esc)"></button>
+    <button class="np-from" id="npFrom" data-action="np-from" title="Go to what's playing"><span class="np-from-lbl" id="npFromLbl">Playing from</span><span class="np-from-name" id="npFromName"></span></button>
+    <div class="np-layout">
+      <div class="np-body">
+        <div class="np-stage">
+          <div class="np-art-wrap" id="npArtWrap" data-action="np-art" title="Go to album"><img id="npArt" class="np-art" alt="" /><span class="np-glare"></span></div>
+        </div>
+        <div class="np-head">
+          <div class="np-titles">
+            <div class="np-title" id="npTitle"></div>
+            <div class="np-artist" id="npArtist"></div>
+            <a class="sp-link" id="npSpLink" href="#" target="_blank" rel="noopener" hidden>Listen on Spotify</a>
+          </div>
+          <button class="icon-btn like big" id="npLike" title="Like (L)"></button>
+          <button class="icon-btn big np-more" id="npMore" title="More options"></button>
+        </div>
+        <div class="np-chips" id="npChips"></div>
+        <div class="np-progress">
+          <input type="range" class="slider big" id="npSeek" min="0" max="1000" value="0" aria-label="Seek" />
+          <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div>
+        </div>
+        <div class="np-controls">
+          <button class="icon-btn ctl big" id="npShuffle" title="Shuffle"></button>
+          <button class="icon-btn ctl big" id="npPrev" title="Previous"></button>
+          <button class="np-play" id="npPlay" title="Play or pause (Space)"></button>
+          <button class="icon-btn ctl big" id="npNext" title="Next"></button>
+          <button class="icon-btn ctl big" id="npRepeat" title="Repeat"></button>
+        </div>
+        <div class="np-extra">
+          <div class="vol wide">
+            <button class="icon-btn ctl" id="npMute" title="Mute"></button>
+            <input type="range" class="slider" id="npVol" min="0" max="100" value="90" aria-label="Volume" />
+          </div>
+          <button class="icon-btn ctl" id="npLyricsBtn" title="Lyrics"></button>
+          <button class="icon-btn ctl" id="npQueueBtn" title="Queue"></button>
+          <button class="icon-btn ctl" id="npSleepBtn" title="Sleep timer"></button>
+        </div>
+        <div class="np-djline" id="npDjLine"></div>
+        <div class="np-spotify-note" id="npSpotifyNote" hidden></div>
+        <div class="np-upnext" id="npUpNext" hidden></div>
+      </div>
+      <div class="np-lyrics" id="npLyrics"></div>
+    </div>
+  </section>
+
+  <div id="ctxMenu" class="hidden"></div>
+  <div id="modal" class="hidden"></div>
+  <div id="toast" role="status"></div>
+
+</div>
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/playback.js"></script>
+<script src="js/player.js"></script>
+<script src="js/dj.js"></script>
+<script src="js/fx3d.js"></script>
+<script src="js/views.js"></script>
+<script src="js/spotify.js"></script>
+<script src="js/fx/motion.js"></script>
+<script src="js/fx/chrome.js"></script>
+<script src="js/fx/nowplaying.js"></script>
+<script src="js/fx/browse.js"></script>
+<script src="js/fx/artiststage.js"></script>
+<script src="js/artists/kanye-west.js"></script>
+<script src="js/artists/kendrick-lamar.js"></script>
+<script src="js/fx/detail.js"></script>
+<script src="js/fx/statsviz.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

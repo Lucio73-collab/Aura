@@ -1,0 +1,191 @@
+/* motion.css: Aura's motion language (loaded after style.css).
+   Spring tokens are solved in js/fx/motion.js (damped harmonic oscillator, sampled into linear())
+   and set on :root at load. The values below are the same numbers, so CSS works before/without JS. */
+
+:root {
+  --spring-snappy: linear(0, 0.0025 0.83%, 0.0095 1.67%, 0.0206 2.5%, 0.0526 4.17%, 0.095 5.83%, 0.199 9.17%, 0.5104 18.33%, 0.6088 21.67%, 0.6942 25%, 0.7661 28.33%, 0.8251 31.67%, 0.8724 35%, 0.9095 38.33%, 0.944 42.5%, 0.9679 46.67%, 0.9862 51.67%, 0.9968 56.67%, 1.0028 62.5%, 1.005 70%, 1);
+  --spring-snappy-dur: 467ms;
+  --spring-bouncy: linear(0, 0.0035 0.83%, 0.0136 1.67%, 0.0294 2.5%, 0.0758 4.17%, 0.1375 5.83%, 0.2492 8.33%, 0.6534 16.67%, 0.7571 19.17%, 0.8461 21.67%, 0.9194 24.17%, 0.9774 26.67%, 1.0208 29.17%, 1.0513 31.67%, 1.0652 33.33%, 1.0782 35.83%, 1.0823 37.5%, 1.0832 40%, 1.0792 42.5%, 1.0718 45%, 1.0318 55%, 1.0175 59.17%, 1.0066 63.33%, 0.9992 67.5%, 0.9945 72.5%, 0.993 78.33%, 1);
+  --spring-bouncy-dur: 815ms;
+  --spring-gentle: linear(0, 0.0026 0.83%, 0.0101 1.67%, 0.0215 2.5%, 0.0746 5%, 0.1456 7.5%, 0.4634 17.5%, 0.5554 20.83%, 0.6356 24.17%, 0.704 27.5%, 0.7613 30.83%, 0.8088 34.17%, 0.8561 38.33%, 0.8925 42.5%, 0.9249 47.5%, 0.951 53.33%, 0.9682 59.17%, 0.9808 65.83%, 0.9899 74.17%, 0.9951 83.33%, 1);
+  --spring-gentle-dur: 882ms;
+  --spring-drawer: linear(0, 0.0018 0.83%, 0.0068 1.67%, 0.0251 3.33%, 0.0525 5%, 0.0867 6.67%, 0.1685 10%, 0.4617 20.83%, 0.5613 25%, 0.6318 28.33%, 0.6938 31.67%, 0.7475 35%, 0.7933 38.33%, 0.8408 42.5%, 0.8787 46.67%, 0.9137 51.67%, 0.9431 57.5%, 0.9633 63.33%, 0.9784 70%, 0.9886 77.5%, 0.9948 85.83%, 1);
+  --spring-drawer-dur: 508ms;
+  --spring-pop: linear(0, 0.0054 0.83%, 0.0209 1.67%, 0.0452 2.5%, 0.0772 3.33%, 0.16 5%, 0.3157 7.5%, 0.7101 13.33%, 0.855 15.83%, 0.9368 17.5%, 1.0055 19.17%, 1.0609 20.83%, 1.1033 22.5%, 1.1198 23.33%, 1.1442 25%, 1.1524 25.83%, 1.1616 27.5%, 1.1625 29.17%, 1.1567 30.83%, 1.1457 32.5%, 1.1309 34.17%, 1.0493 41.67%, 1.0183 45%, 1.0003 47.5%, 0.991 49.17%, 0.9839 50.83%, 0.9769 53.33%, 0.9735 56.67%, 0.975 60%, 0.9968 73.33%, 1.003 80%, 1.0041 88.33%, 1);
+  --spring-pop-dur: 769ms;
+  --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
+  --ease-in-exit: cubic-bezier(.4, 0, 1, 1);
+  --ease-emph: cubic-bezier(.2, 0, 0, 1);
+  --dur-fast: 140ms;
+  --dur-med: 240ms;
+  --dur-slow: 420ms;
+}
+
+/* ============ route transitions (View Transitions API, see Motion.interceptRoute) ============ */
+
+html.vt-nav #content { view-transition-name: aura-content; }
+html.vt-nav::view-transition { pointer-events: none; }
+/* chrome outside #content swaps instantly (it is live anyway); only the page moves */
+html.vt-nav::view-transition-old(root) { display: none; }
+html.vt-nav::view-transition-new(root) { animation: none; }
+html.vt-nav::view-transition-group(aura-content) { animation: none; overflow: clip; }
+/* chrome that floats over #content (glass player island, queue, Now Playing closing, menus)
+   gets its own static group so the moving page snapshot can't paint over it */
+html.vt-nav #playerBar { view-transition-name: aura-bar; }
+html.vt-nav #queuePanel { view-transition-name: aura-queue; }
+html.vt-nav #locateBtn { view-transition-name: aura-locate; }
+html.vt-nav #nowPlaying { view-transition-name: aura-np; }
+html.vt-nav #ctxMenu { view-transition-name: aura-menu; }
+html.vt-nav #toast { view-transition-name: aura-toast; }
+html.vt-nav::view-transition-group(aura-bar), html.vt-nav::view-transition-group(aura-queue),
+html.vt-nav::view-transition-group(aura-locate), html.vt-nav::view-transition-group(aura-np),
+html.vt-nav::view-transition-group(aura-menu), html.vt-nav::view-transition-group(aura-toast),
+html.vt-nav::view-transition-new(aura-bar), html.vt-nav::view-transition-new(aura-queue),
+html.vt-nav::view-transition-new(aura-locate), html.vt-nav::view-transition-new(aura-np),
+html.vt-nav::view-transition-new(aura-menu), html.vt-nav::view-transition-new(aura-toast) { animation: none; }
+html.vt-nav::view-transition-old(aura-bar), html.vt-nav::view-transition-old(aura-queue),
+html.vt-nav::view-transition-old(aura-locate), html.vt-nav::view-transition-old(aura-np),
+html.vt-nav::view-transition-old(aura-menu), html.vt-nav::view-transition-old(aura-toast) { display: none; }
+html.vt-nav::view-transition-old(aura-content),
+html.vt-nav::view-transition-new(aura-content) { mix-blend-mode: normal; transform-origin: 50% 30%; }
+
+@keyframes vt-deep-in { from { transform: translateY(28px) scale(.955); } }
+@keyframes vt-deep-out { to { opacity: 0; transform: translateY(28px) scale(.955); filter: blur(3px); } }
+@keyframes vt-near-in { from { transform: scale(1.035); } }
+@keyframes vt-near-out { to { opacity: 0; transform: scale(1.03); filter: blur(3px); } }
+@keyframes vt-fade-in { from { opacity: 0; } }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-from-below { from { transform: translateY(22px); } }
+@keyframes vt-from-above { from { transform: translateY(-22px); } }
+@keyframes vt-to-above { to { opacity: 0; transform: translateY(-12px); } }
+@keyframes vt-to-below { to { opacity: 0; transform: translateY(12px); } }
+@keyframes vt-shrink-out { to { opacity: 0; transform: scale(.85); } }
+
+/* forward: the old page dissolves toward you, the new one rises out of depth */
+html.vt-nav[data-vt="forward"]::view-transition-old(aura-content) { animation: vt-near-out 200ms var(--ease-in-exit) both; }
+html.vt-nav[data-vt="forward"]::view-transition-new(aura-content) {
+  animation: vt-deep-in var(--spring-snappy-dur) var(--spring-snappy) 40ms both, vt-fade-in 220ms ease-out 40ms both;
+}
+/* back: the reverse, the page you leave sinks away and the previous one settles back from the front */
+html.vt-nav[data-vt="back"]::view-transition-old(aura-content) { animation: vt-deep-out 220ms var(--ease-in-exit) both; }
+html.vt-nav[data-vt="back"]::view-transition-new(aura-content) {
+  animation: vt-near-in var(--spring-snappy-dur) var(--spring-snappy) 40ms both, vt-fade-in 220ms ease-out 40ms both;
+}
+/* sidebar peers: a short vertical slide in the direction the pill travels */
+html.vt-nav[data-vt="up"]::view-transition-old(aura-content) { animation: vt-to-above 160ms var(--ease-in-exit) both; }
+html.vt-nav[data-vt="up"]::view-transition-new(aura-content) { animation: vt-from-below var(--spring-snappy-dur) var(--spring-snappy) 30ms both, vt-fade-in 200ms ease-out 30ms both; }
+html.vt-nav[data-vt="down"]::view-transition-old(aura-content) { animation: vt-to-below 160ms var(--ease-in-exit) both; }
+html.vt-nav[data-vt="down"]::view-transition-new(aura-content) { animation: vt-from-above var(--spring-snappy-dur) var(--spring-snappy) 30ms both, vt-fade-in 200ms ease-out 30ms both; }
+
+/* shared element: card cover <-> detail art */
+html.vt-nav::view-transition-group(aura-morph) {
+  animation-duration: var(--spring-drawer-dur);
+  animation-timing-function: var(--spring-drawer);
+}
+html.vt-nav::view-transition-old(aura-morph),
+html.vt-nav::view-transition-new(aura-morph) {
+  mix-blend-mode: normal; height: 100%; object-fit: cover;
+  animation-duration: 240ms; animation-timing-function: ease;
+}
+html.vt-nav::view-transition-old(aura-morph):only-child { animation: vt-shrink-out 200ms var(--ease-in-exit) both; }
+html.vt-nav::view-transition-new(aura-morph):only-child { animation: vt-fade-in 200ms ease-out both; }
+
+/* the view transition moves the page; don't also run the per-page entrance on top of it */
+html.vt-nav #content[data-enter] > .page { animation: none; }
+html.vt-morph #content .detail-head .detail-art { animation: none !important; }
+.vt-src .card-play, .vt-src .glare { opacity: 0 !important; transition: none !important; }
+.vt-src img { filter: none !important; }
+
+/* ============ scroll-driven reveals + header parallax (compositor only) ============ */
+
+@supports (animation-timeline: view()) {
+  @keyframes m-reveal { from { opacity: 0; translate: 0 34px; scale: .94; } }
+  @keyframes m-reveal-soft { from { opacity: 0; translate: 0 18px; } }
+  @keyframes m-parallax { to { translate: 0 110px; opacity: .2; } }
+
+  html:not(.reduce-motion) #content .sec-head {
+    animation: m-reveal-soft linear both;
+    animation-timeline: view(); animation-range: entry 0% entry 100%;
+  }
+  html:not(.reduce-motion) #content .hscroll {
+    animation: m-reveal linear both;
+    animation-timeline: view(); animation-range: entry 0% entry 60%;
+  }
+  html:not(.reduce-motion) #content .grid-cards > .card > * {
+    animation: m-reveal linear both;
+    animation-timeline: view(); animation-range: entry 0% entry 75%;
+  }
+  html:not(.reduce-motion) #content .detail-head:not(.artist-hero) > .detail-info {
+    animation: m-parallax linear both;
+    animation-timeline: scroll(nearest block); animation-range: 0px 460px;
+  }
+}
+
+/* ============ sidebar: travelling active pill (Motion.spring) ============ */
+
+#sidebar.has-pill .nav-item.active { background: transparent; }
+#sidebar.has-pill .nav-item.active:hover { background: var(--hover); }
+#sidebar.has-pill .nav-item.active::before { display: none; }
+.nav-pill {
+  position: absolute; top: 0; left: 10px; width: 0; height: 34px;
+  border-radius: 8px; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 17%, transparent), rgba(255, 255, 255, .055) 70%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .045), 0 6px 18px -8px color-mix(in srgb, var(--accent) 45%, transparent);
+  opacity: 0; transition: opacity .2s ease;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.nav-pill.on { opacity: 1; }
+.nav-pill::before {
+  content: ''; position: absolute; left: -10px; top: 7px; bottom: 7px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* ============ context menu, modal, toast: spring + blur in, quick accelerate out ============ */
+
+#ctxMenu {
+  opacity: 0; transform: scale(.9) translateY(-4px); filter: blur(8px);
+  transition: opacity 130ms ease-in, transform 150ms var(--ease-in-exit), filter 130ms ease-in;
+}
+#ctxMenu.open {
+  opacity: 1; transform: none; filter: none;
+  transition: opacity 160ms ease-out, transform var(--spring-pop-dur) var(--spring-pop), filter 220ms ease-out;
+}
+#ctxMenu.closing { pointer-events: none; }
+#ctxMenu.open > .menu-item, #ctxMenu.open > .menu-head { animation: m-item-in 360ms var(--spring-snappy) both; }
+@keyframes m-item-in { from { opacity: 0; transform: translateY(-5px); } }
+#ctxMenu.open > :nth-child(2) { animation-delay: 12ms; }
+#ctxMenu.open > :nth-child(3) { animation-delay: 24ms; }
+#ctxMenu.open > :nth-child(4) { animation-delay: 36ms; }
+#ctxMenu.open > :nth-child(5) { animation-delay: 48ms; }
+#ctxMenu.open > :nth-child(6) { animation-delay: 60ms; }
+#ctxMenu.open > :nth-child(7) { animation-delay: 72ms; }
+#ctxMenu.open > :nth-child(8) { animation-delay: 84ms; }
+#ctxMenu.open > :nth-child(9) { animation-delay: 96ms; }
+#ctxMenu.open > :nth-child(n+10) { animation-delay: 108ms; }
+
+.modal-backdrop { transition: opacity 170ms ease-in; }
+#modal.open .modal-backdrop { transition: opacity 300ms ease-out; }
+.modal-card {
+  opacity: 0; transform: scale(.93) translateY(12px); filter: blur(10px);
+  transition: opacity 140ms ease-in, transform 170ms var(--ease-in-exit), filter 140ms ease-in;
+}
+#modal.open .modal-card {
+  opacity: 1; transform: none; filter: none;
+  transition: opacity 200ms ease-out, transform var(--spring-bouncy-dur) var(--spring-bouncy), filter 260ms ease-out;
+}
+
+#toast {
+  transform: translate(-50%, 18px) scale(.9); filter: blur(6px);
+  transition: opacity 160ms ease-in, transform 180ms var(--ease-in-exit), filter 160ms ease-in;
+}
+#toast.show {
+  transform: translate(-50%, 0); filter: none;
+  transition: opacity 200ms ease-out, transform var(--spring-pop-dur) var(--spring-pop), filter 240ms ease-out;
+}
+
+/* ============ magnetic primary round buttons (Motion.spring via --mag-x/--mag-y) ============ */
+
+.mag { translate: var(--mag-x, 0px) var(--mag-y, 0px); }
+.mag > .ic { translate: calc(var(--mag-x, 0px) * .45) calc(var(--mag-y, 0px) * .45); }

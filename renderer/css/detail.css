@@ -1,0 +1,237 @@
+/* detail.css — visual overhaul workstream (loaded after style.css)
+   album/playlist/mix headers, artist hero portrait, track rows, stat viz,
+   timeline lens, frosted sticky bar. Springs are the Motion tokens
+   (--spring-<preset>, css/motion.css). */
+
+/* ============ header mesh gradient (shared GL canvas) ============ */
+
+.page.dx-mesh-page { position: relative; isolation: isolate; }
+.dx-gl { display: block; pointer-events: none; }
+.dx-gl[data-mode="mesh"] {
+  position: absolute; left: 0; right: 0; top: 0; width: 100%;
+  z-index: -1;
+}
+#content .page .detail-head.dx-has-gl { background: transparent !important; }
+
+/* the cover: a thick card. Stacked hairline shadows in the cover's own dark
+   tone read as an edge, a coloured bloom sits under it, a light sweeps across */
+.dx-mesh-page .detail-head .detail-art:not(.round) {
+  border-radius: 8px;
+  box-shadow:
+    1px 1px 0 rgb(var(--dx-edge, 20, 22, 28)), 2px 2px 0 rgb(var(--dx-edge, 20, 22, 28)),
+    3px 3px 0 rgb(var(--dx-edge, 20, 22, 28)), 4px 4px 0 rgb(var(--dx-edge, 20, 22, 28)),
+    5px 5px 0 rgba(0, 0, 0, .5),
+    0 34px 60px -14px rgba(var(--dx-c0, 0, 0, 0), .55),
+    0 18px 40px rgba(0, 0, 0, .45);
+  transition: box-shadow .5s var(--ease);
+}
+.dx-mesh-page .detail-head .detail-art.tilt:not(.round):hover {
+  box-shadow:
+    1px 1px 0 rgb(var(--dx-edge, 20, 22, 28)), 2px 2px 0 rgb(var(--dx-edge, 20, 22, 28)),
+    3px 3px 0 rgb(var(--dx-edge, 20, 22, 28)), 4px 4px 0 rgb(var(--dx-edge, 20, 22, 28)),
+    5px 5px 0 rgb(var(--dx-edge, 20, 22, 28)), 6px 6px 0 rgba(0, 0, 0, .5),
+    0 48px 80px -16px rgba(var(--dx-c0, 0, 0, 0), .7),
+    0 26px 54px rgba(0, 0, 0, .5);
+}
+.dx-mesh-page .detail-head .detail-art:not(.round)::before {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .22) 47%, rgba(255, 255, 255, .06) 53%, transparent 62%) no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, .14), transparent 18%);
+  background-size: 300% 100%, 100% 100%;
+  background-position: 150% 0, 0 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+  border-radius: inherit;
+  mix-blend-mode: screen;
+}
+#content[data-enter] .dx-mesh-page .detail-head .detail-art:not(.round)::before { animation: dxSweep 1.4s var(--ease) .55s both; }
+.dx-mesh-page .detail-head .detail-art.tilting::before { animation: dxSweep 1.1s var(--ease) both; }
+@keyframes dxSweep { from { background-position: 150% 0, 0 0; } to { background-position: -60% 0, 0 0; } }
+
+.dx-mesh-page .detail-head .detail-art.round { box-shadow: 0 0 0 3px rgba(255, 255, 255, .06), 0 20px 44px -10px rgba(var(--dx-c0, 0, 0, 0), .6), 0 10px 28px rgba(0, 0, 0, .45); }
+/* the sticky table header sits in the bleed: glass instead of a solid slab */
+.dx-mesh-page .thead { background: rgba(14, 15, 18, .5); backdrop-filter: blur(16px) saturate(1.3); }
+
+/* legibility over the moving colour: a soft shadow under header text */
+.dx-mesh-page .detail-info h1, .dx-mesh-page .detail-info .eyebrow, .dx-mesh-page .detail-meta { text-shadow: 0 1px 18px rgba(0, 0, 0, .35); }
+.dx-mesh-page .detail-meta { color: rgba(255, 255, 255, .74); }
+.dx-mesh-page .detail-info .eyebrow { color: rgba(255, 255, 255, .78); letter-spacing: .02em; }
+
+/* ============ kinetic title ============ */
+
+.dx-kin { perspective: 600px; }
+.dx-kin .dx-w { display: inline-block; white-space: nowrap; clip-path: inset(-.6em -.3em -.14em -.3em); }
+.dx-kin .dx-l { display: inline-block; transform-origin: 50% 90%; }
+
+/* ============ artist hero: record crate ============
+   His most-played releases fanned in 3D to the right of the name, the
+   favourite in front with its record pulled half out. Click a sleeve to open it. */
+
+.ah-crate {
+  --w: 168px; --step: 74px;
+  position: relative; flex: none; margin-left: auto; align-self: center;
+  width: calc(var(--w) + var(--step) * 4.4); height: calc(var(--w) + 58px);
+  perspective: 1100px; pointer-events: none;
+}
+.ah-sleeve {
+  all: unset; box-sizing: border-box; cursor: pointer; pointer-events: auto;
+  position: absolute; left: 50%; bottom: 0; width: var(--w); height: var(--w);
+  z-index: calc(10 - var(--ak));
+  transform: translateX(calc(-50% + var(--k) * var(--step))) translateZ(calc(var(--ak) * -60px)) rotateY(calc(var(--k) * -8deg));
+  filter: brightness(calc(1 - var(--ak) * .14)) saturate(calc(1 - var(--ak) * .08));
+  transition: transform .5s var(--spring, cubic-bezier(.2, .9, .3, 1.2)), filter .3s ease;
+}
+.ah-sleeve img {
+  position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover;
+  border-radius: 5px; box-shadow: 0 18px 40px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .08) inset;
+}
+.ah-sleeve:hover, .ah-sleeve:focus-visible {
+  z-index: 20; filter: none;
+  transform: translateX(calc(-50% + var(--k) * var(--step))) translateY(-18px) translateZ(40px) rotateY(0deg);
+}
+.ah-sleeve:focus-visible img { outline: 2px solid rgb(var(--tint)); outline-offset: 3px; }
+/* the favourite's record, pulled half out of the top of its sleeve */
+.ah-vinyl {
+  position: absolute; left: 8%; right: 8%; top: 0; aspect-ratio: 1; border-radius: 50%;
+  transform: translateY(-30%);
+  background:
+    radial-gradient(circle, rgb(var(--tint)) 0 15%, #111 15.5% 17%, transparent 17.5%),
+    repeating-radial-gradient(circle, #151518 0 2px, #1d1d21 2.5px 3.5px);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, .5);
+  transition: transform .6s var(--spring, cubic-bezier(.2, .9, .3, 1.2));
+}
+.ah-vinyl::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 30deg, transparent, rgba(255, 255, 255, .1) 20deg, transparent 50deg, transparent 180deg, rgba(255, 255, 255, .08) 200deg, transparent 230deg); }
+.ah-sleeve.fav:hover .ah-vinyl { transform: translateY(-42%) rotate(40deg); }
+.ah-sleeve-name {
+  position: absolute; z-index: 2; left: 0; right: 0; top: calc(100% + 8px);
+  font: 600 12.5px/1.2 var(--display); text-align: center; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 10px rgba(0, 0, 0, .7);
+  opacity: 0; transform: translateY(-4px); transition: opacity .2s ease, transform .25s ease;
+}
+.ah-sleeve:hover .ah-sleeve-name, .ah-sleeve:focus-visible .ah-sleeve-name { opacity: 1; transform: none; }
+.ah-crate:has(.ah-sleeve:hover) .ah-sleeve:not(:hover) { filter: brightness(.45) saturate(.7); }
+
+/* dealt out of a single stack when the page opens, favourite first */
+.ah-crate.dealing .ah-sleeve { animation: crateDeal .9s var(--spring, cubic-bezier(.2, .9, .3, 1.2)) calc(.25s + var(--i) * .09s) backwards; }
+.ah-crate.dealing .ah-vinyl { animation: vinylOut .7s var(--ease, ease-out) 1s backwards; }
+@keyframes crateDeal { from { transform: translateX(-50%) translateY(60px) translateZ(-160px) rotateY(0deg); opacity: 0; } }
+@keyframes vinylOut { from { transform: translateY(0); } }
+
+@media (max-width: 1180px) { .ah-crate { --w: 136px; --step: 56px; } }
+@media (max-width: 960px) { .ah-crate { display: none; } }
+html.reduce-motion .ah-crate *, html.reduce-motion .ah-crate { animation: none !important; transition: none !important; }
+
+/* ============ track rows ============ */
+
+.rows > .row { position: relative; }
+.rows > .row::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background:
+    radial-gradient(180px circle at var(--mx, -300px) var(--my, 50%), rgba(var(--tint, 106, 165, 255), .14), transparent 70%),
+    radial-gradient(90px circle at var(--mx, -300px) var(--my, 50%), rgba(255, 255, 255, .05), transparent 70%);
+  opacity: 0; transition: opacity .3s ease;
+}
+.rows > .row:hover::after { opacity: 1; }
+.row.playing {
+  background: linear-gradient(90deg, rgba(var(--tint, 106, 165, 255), .12), rgba(var(--tint, 106, 165, 255), .03) 45%, transparent 75%);
+  box-shadow: inset 2px 0 0 rgba(var(--tint, 106, 165, 255), .7);
+}
+
+/* number flips over to a play glyph, on a real X axis */
+.row-num { perspective: 140px; }
+.row-num .n, .row-playbtn {
+  backface-visibility: hidden;
+  transition: transform var(--spring-bouncy-dur, .5s) var(--spring-bouncy, ease), opacity .18s ease;
+}
+.row-playbtn { transform: rotateX(100deg); }
+.row:hover .row-num .n { transform: rotateX(-100deg); opacity: 0; }
+.row:hover .row-playbtn { transform: rotateX(0); opacity: 1; }
+.row.playing:not(:hover) .row-playbtn { transform: rotateX(100deg); }
+
+/* live spectrum: four bars driven from Fx3D.level (fx/detail.js) */
+.eq { gap: 2px; }
+.eq span { width: 2.5px; border-radius: 2px; transform-origin: 50% 100%; }
+.eq span:nth-child(4) { height: 70%; animation-delay: -.35s; animation-duration: .8s; }
+.eq.dx-live span { animation: none; height: 100%; transform: scaleY(.2); will-change: transform; }
+.row.playing .eq span { background: rgb(var(--tint, 106, 165, 255)); box-shadow: 0 0 6px rgba(var(--tint, 106, 165, 255), .55); }
+.row.playing .row-title { color: color-mix(in srgb, rgb(var(--tint, 106, 165, 255)) 70%, white); }
+
+/* row entrance: rows fold in along X (static lists only; virtual lists
+   repaint on scroll and must not re-animate) */
+#content[data-enter] .rows:not([data-virtual]) > .row { animation-name: dxRowIn; animation-duration: var(--spring-gentle-dur, .6s); animation-timing-function: var(--spring-gentle, ease); }
+@keyframes dxRowIn { from { opacity: 0; transform: perspective(900px) translateY(12px) rotateX(-28deg); } to { opacity: 1; transform: none; } }
+#content[data-enter] .rows[data-virtual] { animation: dxListIn .7s var(--ease) .15s both; }
+@keyframes dxListIn { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+
+/* ============ artist stat cards: sparklines + gauges ============ */
+
+.stat-card { container-type: inline-size; }
+.stat-card.dx-has-viz .sc-val, .stat-card.dx-has-viz .sc-lbl { position: relative; z-index: 1; }
+.dx-viz { position: absolute; right: 12px; top: 14px; overflow: visible; pointer-events: none; }
+.dx-viz title { pointer-events: auto; }
+.dx-spark .dx-line { fill: none; stroke: color-mix(in srgb, rgb(var(--tint)) 70%, white); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; filter: drop-shadow(0 0 3px rgba(var(--tint), .6)); }
+.dx-spark .dx-dot { fill: #fff; filter: drop-shadow(0 0 4px rgb(var(--tint))); }
+.dx-bars rect { fill: color-mix(in srgb, rgb(var(--tint)) 75%, white); opacity: .8; transform-box: fill-box; transform-origin: 50% 100%; }
+.dx-gauge { top: 50%; margin-top: -17px; right: 14px; }
+.dx-gauge circle { fill: none; stroke-width: 3; transform: rotate(-90deg); transform-origin: 50% 50%; }
+.dx-gauge .dx-track { stroke: rgba(255, 255, 255, .13); }
+.dx-gauge .dx-arc { stroke: color-mix(in srgb, rgb(var(--tint)) 70%, white); stroke-linecap: round; stroke-dasharray: 100; filter: drop-shadow(0 0 3px rgba(var(--tint), .7)); }
+.dx-gauge text { font: 600 9px var(--body); fill: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+.dx-spark .dx-line { animation: dxDraw 1.3s var(--ease) .25s both; }
+.dx-spark .dx-area { animation: dxFade 1s ease .8s both; }
+.dx-spark .dx-dot { animation: dxPop var(--spring-pop-dur, .6s) var(--spring-pop, ease) 1.3s both; transform-box: fill-box; transform-origin: center; }
+.dx-bars rect { animation: dxBar var(--spring-bouncy-dur, .8s) var(--spring-bouncy, ease) both; animation-delay: calc(var(--k) * 28ms + 200ms); }
+.dx-gauge .dx-arc { animation: dxGauge 1.3s var(--ease) .25s both; }
+@keyframes dxDraw { from { stroke-dashoffset: 1; } }
+@keyframes dxFade { from { opacity: 0; } }
+@keyframes dxPop { from { transform: scale(0); } }
+@keyframes dxBar { from { transform: scaleY(0); } }
+@keyframes dxGauge { from { stroke-dashoffset: 100; } }
+.stat-card:hover .dx-viz { filter: brightness(1.25); }
+@container (max-width: 158px) { .dx-viz { opacity: .35; } }
+@container (max-width: 132px) { .dx-viz { display: none; } }
+
+/* ============ timeline: depth + fisheye lens ============ */
+
+.timeline-wrap.dx-lens { perspective: 1600px; perspective-origin: 50% 40%; }
+.dx-lens .timeline { transform: rotateX(9deg); transform-origin: 50% 50%; }
+.dx-lens .tl-axis {
+  background:
+    radial-gradient(160px 3px at var(--fx, -999px) 50%, rgba(255, 255, 255, calc(var(--fs, 0) * .9)), transparent),
+    linear-gradient(90deg, transparent, rgba(var(--tint), .65) 5%, rgba(var(--tint), .65) 95%, transparent);
+}
+.dx-lens .tl-cover {
+  scale: calc(1 + var(--lens, 0) * .42);
+  filter: brightness(calc(.62 + var(--lens, 0) * .5 + (1 - var(--fs, 0)) * .38)) saturate(calc(.75 + var(--lens, 0) * .4 + (1 - var(--fs, 0)) * .25));
+  box-shadow: 0 calc(6px + var(--lens, 0) * 16px) calc(18px + var(--lens, 0) * 22px) rgba(0, 0, 0, .55), 0 0 0 1px rgba(var(--tint), calc(var(--lens, 0) * .6));
+  transition: box-shadow .3s ease;
+}
+.dx-lens .tl-dot { scale: calc(1 + var(--lens, 0) * .6); }
+.dx-lens .tl-node:hover .tl-cover, .dx-lens .tl-node.previewing .tl-cover { transform: scale(1.1); }
+.dx-lens .tl-node:hover .tl-dot { transform: scale(1.3); }
+
+/* ============ sticky compact header: frosted glass tinted by the cover ============ */
+
+.page.detail .sticky-bar .sb-inner {
+  height: 64px;
+  background:
+    linear-gradient(100deg, rgba(var(--dx-c0, var(--tint, 60, 70, 90)), .42), rgba(var(--dx-c1, var(--tint, 60, 70, 90)), .22) 55%, rgba(var(--dx-c2, var(--tint, 60, 70, 90)), .16)),
+    rgba(14, 15, 18, .58);
+  backdrop-filter: blur(28px) saturate(1.9) brightness(.9);
+  border-bottom: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 -1px 0 rgba(255, 255, 255, .06), 0 12px 32px -8px rgba(0, 0, 0, .5);
+  transform: translateY(-14px) scale(.985);
+  filter: blur(6px);
+  transition: opacity .3s ease, transform var(--spring-drawer-dur, .5s) var(--spring-drawer, ease), filter .35s ease;
+}
+.page.detail .sticky-bar .sb-inner::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(var(--dx-c0, var(--tint, 255, 255, 255)), .7) 30%, rgba(255, 255, 255, .35) 50%, rgba(var(--dx-c1, var(--tint, 255, 255, 255)), .6) 70%, transparent);
+}
+.page.detail .sticky-bar.show .sb-inner { transform: none; filter: none; }
+.sb-art { width: 36px; height: 36px; border-radius: 5px; object-fit: cover; box-shadow: 0 4px 12px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .08); }
+.page.detail .sticky-bar .sb-title { text-shadow: 0 1px 10px rgba(0, 0, 0, .35); }
+
+html.reduce-motion .dx-viz *, html.reduce-motion .rows[data-virtual] { animation: none !important; }
+

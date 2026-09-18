@@ -1,0 +1,323 @@
+/* browse.css — Home hero, Albums (Grid / Flow), Artists, Recently Added, cards (see js/fx/browse.js) */
+
+@property --fc { syntax: '<color>'; inherits: true; initial-value: rgb(106, 165, 255); }
+
+/* ================================================================ home hero ==== */
+
+.home-hero.chrome-hero {
+  min-height: clamp(300px, 38vh, 420px);
+  padding-top: 72px;
+  background:
+    radial-gradient(60% 110% at 78% 45%, rgba(var(--tint), .13), transparent 65%),
+    linear-gradient(180deg, rgba(var(--tint), .06), transparent 80%);
+}
+/* the chrome sits right; a quiet scrim keeps the headline side calm on narrow windows */
+.home-hero.chrome-hero::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(14, 15, 18, .72), rgba(14, 15, 18, .35) 38%, transparent 62%);
+}
+.home-hero.chrome-hero::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 90px; z-index: 0; pointer-events: none;
+  background: linear-gradient(transparent, var(--bg));
+}
+.home-hero .hero-chrome { z-index: 0; image-rendering: auto; }
+.home-hero.chrome-hero .hh-text { z-index: 1; }
+
+.home-hero h1.kinetic {
+  font: 700 clamp(44px, 6.4vw, 92px)/.98 var(--display);
+  letter-spacing: -.04em;
+  margin: 8px 0 14px;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, .35);
+}
+.home-hero h1.kinetic .kw { display: inline-block; white-space: nowrap; perspective: 700px; }
+.home-hero h1.kinetic .kl { display: inline-block; transform-origin: 50% 90%; will-change: auto; }
+#content[data-enter] .home-hero h1.kinetic { animation: none; }
+#content[data-enter] .home-hero h1.kinetic .kl {
+  animation:
+    klRise var(--spring-bouncy-dur, 820ms) var(--spring-bouncy, cubic-bezier(.3, 1.3, .4, 1)) both,
+    klWeight 1100ms cubic-bezier(.2, .7, .1, 1) both,
+    klFade 520ms ease-out both;
+  animation-delay: calc(var(--i) * 34ms + 90ms);
+}
+@keyframes klRise { from { transform: translateY(.62em) rotateX(-78deg) scale(.9); } to { transform: none; } }
+@keyframes klWeight { from { font-weight: 200; letter-spacing: .02em; } to { font-weight: 700; letter-spacing: -.04em; } }
+@keyframes klFade { from { opacity: 0; filter: blur(7px); } to { opacity: 1; filter: none; } }
+
+/* ================================================================ cards ==== */
+
+/* holographic foil: a rainbow band slid by the pointer (--gx/--gy from Fx3D.wireTilt), dodged
+   into the art and masked to a soft spot, fading in with the lift */
+#content .card .card-art::before {
+  content: ''; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none;
+  background:
+    repeating-linear-gradient(115deg,
+      rgba(255, 60, 150, .9) 0%, rgba(255, 200, 40, .9) 7%, rgba(40, 255, 170, .9) 14%,
+      rgba(40, 170, 255, .9) 21%, rgba(170, 60, 255, .9) 28%, rgba(255, 60, 150, .9) 35%);
+  background-size: 260% 260%;
+  background-position: var(--gx, 50%) var(--gy, 50%);
+  mix-blend-mode: color-dodge;
+  -webkit-mask-image: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(0, 0, 0, .9), rgba(0, 0, 0, .35) 30%, transparent 62%);
+  opacity: calc(var(--lift, 0) * .42);
+}
+#content .card .card-art .glare {
+  background:
+    radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 255, 255, .34), rgba(255, 255, 255, .08) 26%, transparent 55%);
+}
+
+/* soft shadow in the cover's own colour, deepening as the card lifts */
+#content .card .card-art { transition: box-shadow .4s ease; }
+#content .card:hover .card-art {
+  box-shadow: 0 18px 36px -10px rgba(var(--cc, 0, 0, 0), .45), 0 6px 14px rgba(0, 0, 0, .35);
+}
+#content .card .card-art.tilt.tilting {
+  box-shadow:
+    0 calc(8px + var(--lift, 0) * 26px) calc(18px + var(--lift, 0) * 40px) calc(var(--lift, 0) * -10px) rgba(var(--cc, 0, 0, 0), calc(.18 + var(--lift, 0) * .42)),
+    0 calc(2px + var(--lift, 0) * 8px) calc(8px + var(--lift, 0) * 12px) rgba(0, 0, 0, calc(.3 + var(--lift, 0) * .2));
+}
+#content .card:hover .card-art img { filter: brightness(.9) saturate(1.08); }
+#content .card:hover .card-title { color: #fff; }
+
+/* play button springs up out of the art */
+#content .card .card-play {
+  opacity: 0;
+  transform: translateY(12px) scale(.5);
+  box-shadow: 0 8px 22px rgba(var(--cc, 0, 0, 0), .55), 0 2px 6px rgba(0, 0, 0, .4);
+  transition:
+    opacity .14s ease,
+    transform var(--spring-pop-dur, 700ms) var(--spring-pop, cubic-bezier(.3, 1.5, .4, 1)),
+    scale .14s ease;
+}
+#content .card:hover .card-play { opacity: 1; transform: none; }
+#content .card .card-art.round .card-play { transform: translate(50%, 12px) scale(.5); }
+#content .card.artist:hover .card-play { transform: translate(50%, 0); }
+
+/* ================================================================ quick tiles ==== */
+
+#content .quick-tiles .tile {
+  isolation: isolate;
+  --p0: 106, 165, 255; --p1: 70, 90, 180; --p2: 160, 110, 230;
+}
+#content .quick-tiles .tile::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 200%; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(var(--p0), .5), rgba(var(--p1), .42) 12.5%, rgba(var(--p2), .48) 25%, rgba(var(--p1), .42) 37.5%, rgba(var(--p0), .5) 50%, rgba(var(--p1), .42) 62.5%, rgba(var(--p2), .48) 75%, rgba(var(--p1), .42) 87.5%, rgba(var(--p0), .5));
+  opacity: 0; transition: opacity .5s ease;
+}
+#content .quick-tiles .tile:hover::before { opacity: 1; animation: tileFlow 7s steps(210) infinite; }
+/* a seamless 2-tile-wide gradient slid by transform: compositor only, no repaint per frame */
+@keyframes tileFlow { from { transform: translateX(-50%); } to { transform: none; } }
+#content .quick-tiles .tile::after {
+  content: ''; position: absolute; top: -20%; bottom: -20%; left: 0; width: 34%; z-index: 2; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .26) 50%, transparent);
+  transform: translateX(-140%) skewX(-18deg);
+}
+#content .quick-tiles .tile:hover::after { transform: translateX(420%) skewX(-18deg); transition: transform 1s cubic-bezier(.25, .7, .2, 1); }
+#content .quick-tiles .tile:hover {
+  background: rgba(20, 21, 26, .55);
+  box-shadow: 0 14px 30px -10px rgba(var(--p0), .45), inset 0 0 0 1px rgba(var(--p0), .28);
+}
+#content .quick-tiles .tile:hover .tile-title { text-shadow: 0 1px 10px rgba(0, 0, 0, .55); }
+#content .quick-tiles .tile-art { position: relative; z-index: 1; transition: transform .45s var(--spring-snappy, var(--ease)); }
+#content .quick-tiles .tile:hover .tile-art { transform: scale(1.04); }
+#content .quick-tiles .tile-play { z-index: 3; }
+
+/* ================================================================ mixes: fanned stack ==== */
+
+#content .card .card-art:has(> .mosaic) {
+  overflow: visible; background: transparent;
+}
+#content .card .card-art:has(> .mosaic)::before,
+#content .card .card-art:has(> .mosaic)::after,
+#content .card .card-art:has(> .mosaic) .glare { display: none; }
+#content .card .card-art:has(> .mosaic),
+#content .card .card-art.tilt.tilting:has(> .mosaic),
+#content .card:hover .card-art:has(> .mosaic) { box-shadow: none; }
+#content .card-art > .mosaic {
+  perspective: 600px;
+  position: absolute; inset: 11% 12% 4% 8%; width: auto; height: auto;
+  display: block; transform-style: preserve-3d;
+}
+#content .card-art > .mosaic img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border-radius: 6px;
+  transform-origin: 50% 130%;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06);
+  transition: transform var(--spring-bouncy-dur, 820ms) var(--spring-bouncy, cubic-bezier(.3, 1.3, .4, 1)), filter .4s ease;
+}
+/* at rest: a neat stack with the back covers peeking out up and to the right */
+#content .card-art > .mosaic img:nth-child(1) { transform: translateZ(12px); }
+#content .card-art > .mosaic img:nth-child(2) { transform: translateZ(8px) translate(4%, -4%); filter: brightness(.8); }
+#content .card-art > .mosaic img:nth-child(3) { transform: translateZ(4px) translate(8%, -8%); filter: brightness(.64); }
+#content .card-art > .mosaic img:nth-child(4) { transform: translateZ(0) translate(12%, -12%); filter: brightness(.5); }
+/* hover: fanned like a hand of cards around a pivot below the stack */
+#content .card:hover .card-art > .mosaic img { filter: brightness(.96); }
+#content .card:hover .card-art > .mosaic img:nth-child(1) { transform: translateZ(16px) translate(0%, 1%) rotate(-7deg) rotateY(6deg); filter: none; }
+#content .card:hover .card-art > .mosaic img:nth-child(2) { transform: translateZ(11px) translate(5%, -3%) rotate(0deg) rotateY(-2deg); }
+#content .card:hover .card-art > .mosaic img:nth-child(3) { transform: translateZ(6px) translate(10%, -5%) rotate(7deg) rotateY(-8deg); }
+#content .card:hover .card-art > .mosaic img:nth-child(4) { transform: translateZ(0) translate(15%, -6%) rotate(14deg) rotateY(-14deg); }
+#content .card:has(> .card-art > .mosaic):hover { position: relative; z-index: 2; }
+
+/* ================================================================ artists: orbit ring ==== */
+
+#content .card.artist { position: relative; }
+#content .hscroll:has(> .card.artist) { padding: 14px 12px 12px; margin: -12px -12px 0; scroll-padding-inline: 12px; }
+#content .card.artist::before,
+#content .card.artist::after {
+  content: ''; position: absolute; left: -11px; top: -11px; width: calc(100% + 22px); aspect-ratio: 1; z-index: 2;
+  border-radius: 50%; pointer-events: none; opacity: 0;
+  transition: opacity .4s ease;
+}
+/* a comet of light running round the photo, in the photo's colour */
+#content .card.artist::before {
+  background: conic-gradient(from 0deg, transparent 0 52%, rgba(var(--cc, var(--tint)), 0) 52%, rgba(var(--cc, var(--tint)), .85) 88%, #fff 96%, transparent 96.4%);
+  -webkit-mask-image: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  filter: drop-shadow(0 0 5px rgba(var(--cc, var(--tint)), .9));
+  will-change: transform;
+}
+#content .card.artist::after {
+  box-shadow: inset 0 0 0 1px rgba(var(--cc, var(--tint)), .28), 0 0 34px rgba(var(--cc, var(--tint)), .18);
+}
+#content .card.artist:hover::before { opacity: 1; animation: orbit 2.6s steps(78) infinite; }
+#content .card.artist:hover::after { opacity: 1; }
+@keyframes orbit { to { transform: rotate(1turn); } }
+/* no rainbow foil on faces: the orbit ring is the artist card's light */
+#content .card.artist .card-art::before { display: none; }
+#content .card.artist .card-art img { transition: transform .6s var(--ease), filter .2s ease; }
+#content .card.artist:hover .card-art img { transform: scale(1.06); }
+
+/* ================================================================ albums: view toggle ==== */
+
+.view-toggle {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr;
+  padding: 3px; border-radius: 10px;
+  background: rgba(255, 255, 255, .05);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.view-toggle button {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; padding: 0 12px; border: 0; border-radius: 7px;
+  background: none; color: var(--text-dim); cursor: pointer;
+  font: 600 12.5px var(--body);
+  transition: color .2s ease;
+}
+.view-toggle button:hover { color: var(--text); }
+.view-toggle button.on { color: var(--text); }
+.view-toggle .ic { width: 16px; height: 16px; }
+.view-toggle .vt-thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .15), rgba(255, 255, 255, .09));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .06);
+  transition: transform var(--spring-snappy-dur, 460ms) var(--spring-snappy, cubic-bezier(.3, 1.2, .4, 1));
+}
+.view-toggle:has(button:last-of-type.on) .vt-thumb { transform: translateX(100%); }
+
+/* ================================================================ albums: flow ==== */
+
+.albums-flow { padding-bottom: 0; }
+.albums-flow .page-head { position: relative; z-index: 2; margin-bottom: 0; }
+.flow-stage {
+  position: relative;
+  height: clamp(440px, calc(100vh - 230px), 860px);
+  margin: -8px -32px 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto auto;
+  user-select: none;
+  transition: --fc .9s ease;
+  animation: flowIn .6s var(--ease) both;
+}
+@keyframes flowIn { from { opacity: 0; } }
+.flow-stage::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(42% 40% at 50% 40%, color-mix(in srgb, var(--fc) 20%, transparent), transparent 72%),
+    radial-gradient(70% 30% at 50% 76%, color-mix(in srgb, var(--fc) 7%, transparent), transparent 70%);
+}
+.flow-3d { position: relative; min-height: 0; }
+.flow-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  cursor: grab; touch-action: none; outline: none;
+}
+.flow-stage.dragging .flow-canvas { cursor: grabbing; }
+
+/* stand-in DOM cover over the focused GL cover, only while a view transition morphs it */
+.flow-stage .flow-proxy { position: absolute; z-index: 1; pointer-events: none; }
+.flow-stage .flow-proxy .card-art { width: 100%; height: 100%; margin: 0; border-radius: 2%; box-shadow: none; }
+
+.flow-info {
+  position: relative; z-index: 1;
+  margin-top: clamp(-150px, -13vh, -70px);
+  min-height: 132px; padding: 0 32px;
+  text-align: center; pointer-events: none;
+}
+.flow-info > * { pointer-events: auto; }
+.fi-title {
+  display: inline-block; max-width: 100%;
+  font: 700 clamp(26px, 3.1vw, 44px)/1.08 var(--display);
+  letter-spacing: -.025em; cursor: pointer;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, .55);
+}
+.flow-info.long .fi-title { font-size: clamp(22px, 2.3vw, 32px); }
+.fi-w { display: inline-block; white-space: nowrap; }
+.fi-l {
+  display: inline-block;
+  animation: fiRise var(--spring-bouncy-dur, 820ms) var(--spring-bouncy, cubic-bezier(.3, 1.3, .4, 1)) both, fiFade .42s ease-out both;
+  animation-delay: calc(min(var(--i), 30) * 13ms);
+}
+@keyframes fiRise { from { transform: translateY(.55em) rotate(4deg); } to { transform: none; } }
+@keyframes fiFade { from { opacity: 0; filter: blur(5px); } to { opacity: 1; filter: none; } }
+.fi-sub {
+  margin-top: 6px; color: var(--text-dim); font-size: 14px;
+  animation: fiFade .5s ease-out .12s both;
+}
+.fi-sub .link { color: var(--text); }
+.fi-actions {
+  display: flex; justify-content: center; gap: 10px; margin-top: 16px;
+  animation: fiUp .55s var(--ease) .18s both;
+}
+@keyframes fiUp { from { opacity: 0; transform: translateY(8px); } }
+
+.flow-foot {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: 80px minmax(0, 1fr) auto; align-items: center; gap: 18px;
+  padding: 10px 32px 18px;
+  color: var(--text-faint); font-size: 12px;
+}
+.flow-count { font: 600 12px var(--body); font-variant-numeric: tabular-nums; letter-spacing: .06em; color: var(--text-dim); }
+.flow-hint { white-space: nowrap; }
+.flow-rail { position: relative; display: flex; align-items: center; height: 24px; overflow-x: clip; overflow-clip-margin: 12px; }
+.fr-tick { flex: 1; min-width: 0; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
+.fr-tick::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 2px; height: 6px;
+  translate: -50% -50%; border-radius: 2px;
+  background: rgba(255, 255, 255, .16);
+  transition: height .35s var(--spring-snappy, var(--ease)), background .3s ease;
+}
+.fr-tick:hover::after { height: 14px; background: rgba(255, 255, 255, .5); }
+.fr-tick.on::after { height: 16px; background: var(--fc); box-shadow: 0 0 10px var(--fc); }
+.fr-fill {
+  position: absolute; top: 50%; left: calc(50% / var(--n)); width: calc(100% - 100% / var(--n)); height: 0;
+  pointer-events: none;
+}
+.fr-fill::before {
+  content: ''; position: absolute; left: -3px; top: 8px; width: 6px; height: 6px; border-radius: 50%;
+  background: #fff; box-shadow: 0 0 8px var(--fc), 0 0 2px #fff;
+}
+
+@media (max-width: 900px) {
+  .flow-hint { display: none; }
+  .flow-foot { grid-template-columns: 60px minmax(0, 1fr); }
+}
+
+/* ================================================================ reduce motion ==== */
+
+html.reduce-motion #content .card .card-play,
+html.reduce-motion #content .card-art > .mosaic img,
+html.reduce-motion .view-toggle .vt-thumb { transition-duration: .01ms; }
+html.reduce-motion #content .card.artist:hover::before,
+html.reduce-motion #content .quick-tiles .tile:hover::before { animation: none; }
+html.reduce-motion #content .quick-tiles .tile:hover::after { transition: none; transform: translateX(-140%) skewX(-18deg); }
+html.reduce-motion .fi-l, html.reduce-motion .fi-sub, html.reduce-motion .fi-actions, html.reduce-motion .flow-stage { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #content .card.artist:hover::before, #content .quick-tiles .tile:hover::before { animation: none; }
+  .fi-l, .fi-sub, .fi-actions { animation: none; }
+}

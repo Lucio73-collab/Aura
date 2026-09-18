@@ -1,0 +1,252 @@
+/* chrome.css — persistent chrome: floating glass player island, waveform seek,
+   transport morphs, liquid volume, sidebar light, queue panel, grain + light pool.
+   Pairs with js/fx/chrome.js. */
+
+@property --pool-c { syntax: '<color>'; inherits: true; initial-value: rgb(106 165 255); }
+
+:root {
+  --pb-h: 98px;          /* grid row: island (86px) + bottom inset */
+  --pb-inset: 10px;
+  --chrome-tint: 106, 165, 255;
+}
+
+/* ============ frame: content + sidebar run under the island ============ */
+
+#sidebar { grid-row: 1 / 3; padding-bottom: calc(var(--pb-h) + 6px); isolation: isolate; }
+#content { grid-row: 1 / 3; padding-bottom: var(--pb-h); }
+#content::-webkit-scrollbar-track { margin-bottom: var(--pb-h); }
+
+/* ============ floating glass island ============ */
+
+#playerBar {
+  grid-row: 2; grid-column: 1 / -1;
+  align-self: stretch;
+  margin: 0 var(--pb-inset) var(--pb-inset);
+  padding: 0 18px 0 14px;
+  border: 0;
+  border-radius: 22px;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 180% at 12% 0%, rgba(var(--tint), .16), transparent 55%),
+    radial-gradient(90% 160% at 100% 100%, rgba(var(--tint), .08), transparent 60%),
+    linear-gradient(180deg, rgba(30, 31, 37, .72), rgba(14, 15, 19, .82));
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  backdrop-filter: blur(26px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .09),
+    inset 0 0 0 1px rgba(255, 255, 255, .06),
+    inset 0 -1px 0 rgba(0, 0, 0, .35),
+    0 18px 42px -14px rgba(var(--tint), .38),
+    0 10px 30px rgba(0, 0, 0, .55);
+  transition: box-shadow 1.2s ease;
+  overflow: visible;
+}
+/* thin tinted edge light along the top (replaces the old full-width 1px line) */
+#playerBar::before {
+  left: 22px; right: 22px; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(var(--tint), .7) 30%, rgba(255, 255, 255, .55) 50%, rgba(var(--tint), .7) 70%, transparent);
+  opacity: .55;
+  z-index: 1;
+  pointer-events: none;
+}
+/* specular glint that travels along the rim: fired on track change and every
+   ~12-17s while playing (one-shot, so a paused app composites nothing) */
+#playerBar::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  padding: 1px;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .0) 42%, rgba(255, 255, 255, .75) 50%, rgba(var(--tint), .6) 54%, transparent 62%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 120% 0;
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+}
+#playerBar.spec::after { animation: pbSpec 1.6s cubic-bezier(.45, .05, .25, 1) both; }
+@keyframes pbSpec {
+  0% { background-position: 120% 0; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { background-position: -20% 0; opacity: 0; }
+}
+#playerBar.empty { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 0 0 1px rgba(255, 255, 255, .05), 0 10px 30px rgba(0, 0, 0, .5); }
+
+.pb-center { padding: 8px 0 6px; gap: 2px; }
+.pb-progress { max-width: 640px; gap: 12px; }
+.pb-progress .time { transition: color .2s ease; }
+
+/* ============ transport ============ */
+
+.play-btn {
+  width: 38px; height: 38px;
+  background: radial-gradient(circle at 50% 30%, #fff, #e6e7ec);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .25), 0 6px 18px -4px rgba(var(--tint), .55), 0 2px 6px rgba(0, 0, 0, .4);
+  transition: transform var(--spring-snappy-dur, 160ms) var(--spring-snappy, ease), box-shadow .6s ease;
+}
+.play-btn .ic { width: 18px; height: 18px; overflow: visible; }
+.play-btn .ic.morph { transform-origin: 50% 50%; }
+.play-btn.pulse { animation: playPulse .5s cubic-bezier(.3, 1.4, .5, 1); }
+@keyframes playPulse { 0% { scale: 1; } 30% { scale: .88; } 100% { scale: 1; } }
+
+.pb-controls { gap: 10px; }
+.pb-controls .icon-btn { position: relative; overflow: visible; }
+.pb-controls .icon-btn .ic.ghost { position: absolute; left: 50%; top: 50%; margin: -9px 0 0 -9px; pointer-events: none; }
+.pb-controls .icon-btn.ctl .ic { transition: color .25s ease, filter .35s ease; }
+.pb-controls .icon-btn.ctl.on .ic { filter: drop-shadow(0 0 5px rgba(var(--tint), .6)); }
+.pb-controls .icon-btn.ctl.on { color: rgb(var(--tint)); }
+.pb-controls .icon-btn.ctl.on::before { background: rgb(var(--tint)); box-shadow: 0 0 6px rgba(var(--tint), .9); animation: dotIn var(--spring-pop-dur, .45s) var(--spring-pop, ease); }
+@keyframes dotIn { from { transform: translateX(-50%) scale(0); } to { transform: translateX(-50%) scale(1); } }
+.pb-controls .icon-btn.one::after { background: rgb(var(--tint)); color: #0b0c0e; animation: badgePop .5s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes badgePop { from { transform: scale(0) rotate(-90deg); } to { transform: none; } }
+
+/* ============ waveform seek ============ */
+
+.wave { position: relative; flex: 1; height: 30px; min-width: 0; }
+.wave-cv { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wave .slider {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0;
+  background: transparent !important; border-radius: 6px; cursor: pointer;
+}
+.wave .slider::-webkit-slider-thumb { width: 1px; height: 100%; opacity: 0 !important; }
+.wave .slider:focus-visible { outline: 2px solid rgba(var(--tint), .8); outline-offset: 2px; }
+.wave-tip {
+  position: absolute; left: 0; top: 50%;
+  padding: 2px 6px; border-radius: 6px;
+  font: 600 10.5px var(--body); font-variant-numeric: tabular-nums; color: #fff;
+  background: rgba(20, 21, 26, .92);
+  box-shadow: 0 0 0 1px rgba(var(--tint), .35), 0 6px 16px rgba(0, 0, 0, .5);
+  pointer-events: none; opacity: 0; scale: .9;
+  transition: opacity .15s ease, scale var(--spring-snappy-dur, .2s) var(--spring-snappy, ease);
+  white-space: nowrap; z-index: 3;
+}
+.wave.hovering .wave-tip { opacity: 1; scale: 1; }
+.wave-tip.flip { translate: -100% 0; }
+#playerBar.empty .wave-tip { display: none; }
+
+/* ============ cover + beat ring ============ */
+
+.pb-left { position: relative; }
+.pb-art { position: relative; z-index: 1; border-radius: 10px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 6px 16px rgba(0, 0, 0, .45); }
+.pb-ring {
+  position: absolute; left: -5px; top: 50%; width: 60px; height: 60px; margin-top: -30px;
+  border-radius: 15px; pointer-events: none; z-index: 0; opacity: 0;
+  background: conic-gradient(from 0deg, rgba(var(--tint), 0), rgba(var(--tint), .95), rgba(255, 255, 255, .8) 18%, rgba(var(--tint), 0) 34%, rgba(var(--tint), .7) 60%, rgba(var(--tint), 0) 80%, rgba(var(--tint), .95));
+  -webkit-mask: radial-gradient(closest-side, transparent 78%, #000 84%, #000 97%, transparent);
+  filter: blur(2.5px);
+  will-change: opacity, transform;
+  /* no spin: an endless CSS animation ticks at the display's refresh rate
+     (360 Hz here) and can't be capped; the beat glow carries it alone */
+}
+#playerBar.empty .pb-ring { display: none; }
+
+/* ============ liquid volume ============ */
+
+.vol { width: 138px; gap: 6px; }
+.vol-fx { position: relative; flex: 1; height: 26px; min-width: 0; }
+.vol-cv { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.vol-fx .slider { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent !important; }
+.vol-fx .slider::-webkit-slider-thumb { width: 1px; height: 100%; opacity: 0 !important; }
+.vol-fx .slider:focus-visible { outline: 2px solid rgba(var(--tint), .8); outline-offset: 1px; }
+@media (max-width: 1000px) { .vol { width: 104px; } }
+
+/* ============ queue / lyrics panel: floating glass ============ */
+
+#queuePanel {
+  top: 46px; right: var(--pb-inset); bottom: calc(var(--pb-h) + 8px);
+  border: 0; border-radius: 20px; overflow: hidden;
+  background:
+    radial-gradient(140% 60% at 100% 0%, rgba(var(--chrome-tint), .12), transparent 60%),
+    linear-gradient(180deg, rgba(26, 27, 33, .94), rgba(16, 17, 21, .96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 0 0 1px rgba(255, 255, 255, .06), 0 24px 60px -10px rgba(0, 0, 0, .7);
+  transform: translateX(calc(100% + 24px));
+}
+#queuePanel.open { transform: translateX(0); }
+#app.np-open #queuePanel { bottom: var(--pb-inset); }
+#app.queue-open #content { padding-right: 356px; }
+.qp-tab { position: relative; }
+.qp-tab.active::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 2px; border-radius: 2px;
+  background: rgb(var(--chrome-tint)); box-shadow: 0 0 8px rgba(var(--chrome-tint), .8);
+  animation: tabLine var(--spring-bouncy-dur, .45s) var(--spring-bouncy, ease);
+}
+@keyframes tabLine { from { transform: scaleX(0); } }
+.q-row { transition: background .2s ease; will-change: auto; }
+.q-row:hover { background: rgba(255, 255, 255, .06); }
+.q-row.now {
+  background: linear-gradient(90deg, rgba(var(--chrome-tint), .18), rgba(var(--chrome-tint), .04));
+  box-shadow: inset 0 0 0 1px rgba(var(--chrome-tint), .22);
+  border-radius: 10px;
+}
+.q-row.now .q-title { color: rgb(var(--chrome-tint)); filter: brightness(1.25); }
+.q-art { position: relative; border-radius: 6px; }
+.q-spec {
+  position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; gap: 2px;
+  padding: 0 6px 7px; background: linear-gradient(0deg, rgba(0, 0, 0, .7), rgba(0, 0, 0, .25));
+}
+.q-spec i { width: 3px; height: 22px; border-radius: 2px; background: #fff; transform-origin: 50% 100%; transform: scaleY(.1); box-shadow: 0 0 6px rgba(var(--chrome-tint), .9); }
+
+/* ============ sidebar ============ */
+
+.side-light {
+  position: absolute; left: 0; right: 0; top: 0; height: 340px; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(90% 70% at 30% -10%, color-mix(in srgb, var(--pool-c) 22%, transparent), transparent 70%),
+    radial-gradient(60% 45% at 95% 0%, color-mix(in srgb, var(--pool-c) 12%, transparent), transparent 70%);
+  transition: --pool-c 2.2s ease;
+}
+#sidebar { transition: --pool-c 2.2s ease; }
+#sidebar .nav-item .ic { transition: transform var(--spring-bouncy-dur, .45s) var(--spring-bouncy, ease); transform-style: preserve-3d; }
+#sidebar .nav-item:hover .ic { transform: perspective(60px) rotateY(-22deg) rotateX(8deg) scale(1.12); }
+#sidebar .nav-item:hover .ic [pathLength] { animation: navDraw .7s cubic-bezier(.65, 0, .35, 1) both; }
+@keyframes navDraw { from { stroke-dasharray: 1 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1 1; stroke-dashoffset: 0; } }
+
+.search-wrap { transition: margin var(--spring-bouncy-dur, .45s) var(--spring-bouncy, ease); border-radius: 9px; }
+.search-wrap:focus-within { margin: 0 -3px 12px; }
+.search-wrap input { transition: background .25s ease, border-color .25s ease, box-shadow .35s ease, height var(--spring-snappy-dur, .35s) var(--spring-snappy, ease); border-radius: 9px; }
+.search-wrap:focus-within input {
+  height: 36px;
+  border-color: color-mix(in srgb, var(--pool-c) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pool-c) 14%, transparent), 0 8px 22px -8px color-mix(in srgb, var(--pool-c) 50%, transparent);
+}
+.search-wrap:focus-within .ic { color: var(--text); }
+.search-wrap::after {
+  content: ''; position: absolute; inset: 0; border-radius: 9px; pointer-events: none; opacity: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .16) 48%, color-mix(in srgb, var(--pool-c) 30%, transparent) 52%, transparent 70%) no-repeat;
+  background-size: 250% 100%;
+}
+.search-wrap.sweep::after { animation: searchSweep .9s cubic-bezier(.45, .05, .25, 1) both; }
+@keyframes searchSweep { 0% { background-position: 110% 0; opacity: 1; } 100% { background-position: -10% 0; opacity: 0; } }
+
+/* ============ global surface ============ */
+
+.chrome-pool { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.chrome-pool i {
+  position: absolute; border-radius: 50%;
+  transition: transform 3.2s cubic-bezier(.45, 0, .2, 1), --pool-c 2.4s ease;
+}
+.chrome-pool i:first-child {
+  left: 20%; top: -30%; width: 80vw; height: 80vh;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--pool-c) 11%, transparent), transparent);
+}
+.chrome-pool i:last-child {
+  right: -20%; bottom: -25%; width: 60vw; height: 70vh;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--pool-c) 7%, transparent), transparent);
+}
+.chrome-grain {
+  position: fixed; left: 0; top: 0; width: calc(100vw + 128px); height: calc(100vh + 128px);
+  z-index: 58; pointer-events: none; opacity: .032;
+  background-repeat: repeat; background-size: 128px 128px;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chrome-grain { will-change: auto; }
+}
+
+/* During a view transition the bar is captured in its own layer, so its
+   backdrop blur has no page behind it: firm the glass up so it never reads
+   as a see-through hole while pages cross-fade underneath. */
+html.vt-nav #playerBar {
+  background:
+    radial-gradient(120% 180% at 12% 0%, rgba(var(--tint), .16), transparent 55%),
+    linear-gradient(180deg, rgba(26, 27, 32, .95), rgba(14, 15, 19, .97));
+}

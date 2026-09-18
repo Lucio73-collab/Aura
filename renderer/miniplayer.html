@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
+<title>Aura Mini</title>
+<style>
+  :root { color-scheme: dark; --tint: 120,140,255; --fg: #f5f5f7; --dim: rgba(245,245,247,.62);
+    --hi: color-mix(in srgb, rgb(var(--tint)) 65%, white); }
+  * { margin: 0; box-sizing: border-box; user-select: none; }
+  html, body { height: 100%; background: transparent; overflow: hidden; }
+  body { font: 500 13px -apple-system, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; color: var(--fg); padding: 1px; }
+
+  /* the card: transparent window, so the rounded corners are real */
+  .card { position: relative; height: 100%; border-radius: 14px; overflow: hidden; isolation: isolate;
+    background: #111116; border: 1px solid rgba(255,255,255,.09); -webkit-app-region: drag;
+    display: grid; grid-template-rows: auto auto 1fr; padding: 12px 12px 8px; gap: 8px; }
+  /* blurred cover + album tint behind everything */
+  .bg { position: absolute; inset: -30px; z-index: -2; background: center/cover no-repeat;
+    filter: blur(28px) saturate(1.4); opacity: .55; transform: scale(1.1); transition: opacity 400ms ease; }
+  .card::before { content: ''; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(160deg, rgba(var(--tint), .22), rgba(12,12,16,.78) 55%, rgba(10,10,14,.92)); transition: background 400ms ease; }
+
+  .top { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .art { width: 52px; height: 52px; border-radius: 8px; flex: none; background: #26262c center/cover no-repeat;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45); -webkit-app-region: no-drag; cursor: pointer; display: grid; place-items: center; color: var(--dim); }
+  .art.has { color: transparent; }
+  .meta { flex: 1; min-width: 0; }
+  .t { font-weight: 650; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .a { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+  button { all: unset; cursor: pointer; border-radius: 50%; display: grid; place-items: center; color: var(--fg);
+    -webkit-app-region: no-drag; transition: background 120ms ease, color 120ms ease, opacity 120ms ease, transform 140ms cubic-bezier(.23,1,.32,1); }
+  button:hover { background: rgba(255,255,255,.1); }
+  button:active { transform: scale(.92); }
+  button:focus-visible { outline: 2px solid rgba(var(--tint), .9); outline-offset: 1px; }
+  button:disabled { opacity: .35; pointer-events: none; }
+  svg { width: 18px; height: 18px; display: block; }
+
+  /* window chrome: shows on hover so the card stays clean */
+  .chrome { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; opacity: 0; transition: opacity 160ms ease; }
+  body:hover .chrome, .chrome:focus-within { opacity: 1; }
+  .chrome button { width: 24px; height: 24px; border-radius: 6px; background: rgba(0,0,0,.35); }
+  .chrome button:hover { background: rgba(255,255,255,.16); }
+  .chrome svg { width: 13px; height: 13px; }
+  body:hover .top .meta { padding-right: 52px; }
+
+  .like { width: 30px; height: 30px; color: var(--dim); flex: none; }
+  .like.on { color: var(--hi); }
+  .like.on svg { fill: currentColor; }
+  .like.pop svg { animation: pop 320ms cubic-bezier(.23,1,.32,1); }
+  @keyframes pop { 40% { transform: scale(1.3); } }
+  body:hover .like { visibility: hidden; }
+
+  /* progress */
+  .prog { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 6px;
+    font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .prog span:first-child { text-align: right; }
+  .bar { position: relative; height: 14px; cursor: pointer; -webkit-app-region: no-drag; display: flex; align-items: center; }
+  .bar::before { content: ''; position: absolute; left: 0; right: 0; height: 4px; border-radius: 2px; background: rgba(255,255,255,.16); }
+  .fill { position: absolute; left: 0; height: 4px; border-radius: 2px; background: var(--fg); width: 0; }
+  .knob { position: absolute; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.5); left: 0; transform: scale(0); transition: transform 120ms ease; }
+  .bar:hover .fill, .bar.drag .fill { background: var(--hi); }
+  .bar:hover .knob, .bar.drag .knob { transform: scale(1); }
+  .bar.off { pointer-events: none; opacity: .5; }
+
+  /* transport */
+  .ctls { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .ctls .sm { width: 30px; height: 30px; color: var(--dim); position: relative; }
+  .ctls .sm svg { width: 16px; height: 16px; }
+  .ctls .sm.on { color: var(--hi); }
+  .ctls .sm.on::after { content: ''; position: absolute; bottom: 1px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+  .ctls .sm .one { position: absolute; top: 3px; right: 3px; font: 700 8px/1 system-ui; display: none; }
+  .ctls .sm.one-mode .one { display: block; }
+  .ctls .md { width: 34px; height: 34px; }
+  .ctls .pp { width: 38px; height: 38px; background: #fff; color: #111; box-shadow: 0 3px 12px rgba(0,0,0,.35); }
+  .ctls .pp:hover { background: #fff; transform: scale(1.05); }
+  .ctls .pp:active { transform: scale(.94); }
+  .ctls .pp svg { width: 18px; height: 18px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="bg" id="bg"></div>
+  <div class="chrome">
+    <button id="open" title="Open Aura" aria-label="Open Aura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></button>
+    <button id="close" title="Close mini player (Esc)" aria-label="Close mini player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>
+  </div>
+
+  <div class="top">
+    <div class="art" id="art" title="Open Aura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+    <div class="meta"><div class="t" id="t">Not Playing</div><div class="a" id="a">Aura</div></div>
+    <button class="like" id="like" title="Like (L)" aria-label="Like" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20.7S5.6 16.6 3.2 13C1.5 10.3 2.5 7 5.4 6.1c1.8-.5 3.7.2 4.8 1.7L12 9.6l1.8-1.8c1.1-1.5 3-2.2 4.8-1.7 2.9.9 3.9 4.2 2.2 6.9-2.4 3.6-8.8 7.7-8.8 7.7Z"/></svg></button>
+  </div>
+
+  <div class="prog">
+    <span id="cur">0:00</span>
+    <div class="bar off" id="bar" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+    <span id="dur">0:00</span>
+  </div>
+
+  <div class="ctls">
+    <button class="sm" id="shuffle" title="Shuffle (S)" aria-label="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg></button>
+    <button class="md" id="prev" title="Previous (Ctrl+←)" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 5.65v12.7c0 .86-.94 1.38-1.66.92L9.5 14.6v3.5a1.1 1.1 0 0 1-2.2 0V5.9a1.1 1.1 0 0 1 2.2 0v3.5l7.34-4.67c.72-.46 1.66.06 1.66.92Z"/></svg></button>
+    <button class="pp" id="pp" title="Play (Space)" aria-label="Play"><svg id="ppi" viewBox="0 0 24 24" fill="currentColor"></svg></button>
+    <button class="md" id="next" title="Next (Ctrl+→)" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5.5 5.65v12.7c0 .86.94 1.38 1.66.92L14.5 14.6v3.5a1.1 1.1 0 0 0 2.2 0V5.9a1.1 1.1 0 0 0-2.2 0v3.5L7.16 4.73C6.44 4.27 5.5 4.79 5.5 5.65Z"/></svg></button>
+    <button class="sm" id="repeat" title="Repeat (R)" aria-label="Repeat" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><span class="one">1</span></button>
+  </div>
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  const PLAY = '<path d="M8 5.14v13.72c0 .84.9 1.36 1.62.92l11.1-6.86a1.08 1.08 0 0 0 0-1.84L9.62 4.22C8.9 3.78 8 4.3 8 5.14Z"/>';
+  const PAUSE = '<rect x="6.4" y="4.5" width="3.7" height="15" rx="1.3"/><rect x="13.9" y="4.5" width="3.7" height="15" rx="1.3"/>';
+  const cmd = c => window.aura.sendCmd(c);
+  const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  // downscaled local art, see mediaServer.js
+  const artSrc = c => c ? (/^\/(art|cover)\//.test(c) ? c + (c.includes('?') ? '&' : '?') + 'w=256' : c) : null;
+
+  const st = { id: undefined, playing: false, dur: 0, base: 0, baseAt: 0, liked: false, cover: undefined, ppState: null };
+  let dragging = false, dragPct = 0;
+
+  // the main window sends position about once a second; interpolate in between
+  const posNow = () => Math.min(st.dur || Infinity, st.base + (st.playing ? (performance.now() - st.baseAt) / 1000 : 0));
+  function setPos(t) { st.base = Math.max(0, t || 0); st.baseAt = performance.now(); }
+
+  function paint() {
+    const t = dragging ? dragPct * st.dur : posNow();
+    const pct = st.dur ? Math.min(1, t / st.dur) * 100 : 0;
+    $('fill').style.width = pct + '%';
+    $('knob').style.left = pct + '%';
+    $('cur').textContent = fmt(t);
+    $('dur').textContent = fmt(st.dur);
+    $('bar').setAttribute('aria-valuenow', Math.round(pct));
+  }
+  let raf = 0;
+  function loop() { paint(); raf = st.playing || dragging ? requestAnimationFrame(loop) : 0; }
+  function kick() { if (!raf) raf = requestAnimationFrame(loop); }
+
+  window.aura.on('state', s => {
+    const has = !!s.id;
+    if (s.id !== st.id) { st.id = s.id; setPos(s.pos || 0); }
+    else if (st.playing !== !!s.playing) setPos(posNow()); // re-anchor on play/pause so paused time doesn't drift
+    st.playing = !!s.playing;
+    st.dur = s.duration || 0;
+
+    $('t').textContent = s.title || 'Not Playing';
+    $('a').textContent = has ? [s.artist, s.album].filter(Boolean).join(' · ') : 'Aura';
+    document.title = has ? `${s.title} · ${s.artist}` : 'Aura Mini';
+
+    if (s.cover !== st.cover) {
+      st.cover = s.cover;
+      const src = artSrc(s.cover);
+      const url = src ? `url(${JSON.stringify(src)})` : 'none';
+      $('art').style.backgroundImage = url;
+      $('art').classList.toggle('has', !!src);
+      $('bg').style.backgroundImage = url;
+      $('bg').style.opacity = src ? '' : '0';
+    }
+    if (s.tint) document.documentElement.style.setProperty('--tint', s.tint.join(','));
+
+    const ppState = st.playing ? 'pause' : 'play';
+    if (ppState !== st.ppState) {
+      st.ppState = ppState;
+      $('ppi').innerHTML = st.playing ? PAUSE : PLAY;
+      $('pp').title = st.playing ? 'Pause (Space)' : 'Play (Space)';
+      $('pp').setAttribute('aria-label', st.playing ? 'Pause' : 'Play');
+    }
+
+    const liked = !!s.liked;
+    if (liked !== st.liked && has) { $('like').classList.remove('pop'); void $('like').offsetWidth; if (liked) $('like').classList.add('pop'); }
+    st.liked = liked;
+    $('like').classList.toggle('on', liked);
+    $('like').setAttribute('aria-pressed', liked);
+    $('like').disabled = !has;
+
+    $('shuffle').classList.toggle('on', !!s.shuffle);
+    $('shuffle').setAttribute('aria-pressed', !!s.shuffle);
+    const rep = s.repeat || 'off';
+    $('repeat').classList.toggle('on', rep !== 'off');
+    $('repeat').classList.toggle('one-mode', rep === 'one');
+    $('repeat').setAttribute('aria-pressed', rep !== 'off');
+    $('repeat').title = 'Repeat: ' + (rep === 'one' ? 'one' : rep === 'all' ? 'all' : 'off') + ' (R)';
+
+    for (const b of ['prev', 'next']) $(b).disabled = !has;
+    $('bar').classList.toggle('off', !has || !st.dur);
+    paint(); kick();
+  });
+
+  window.aura.on('pos', (t, dur) => {
+    if (dur) st.dur = dur;
+    setPos(t);
+    if (!raf) paint();
+  });
+
+  /* ---- seek by click or drag ---- */
+  const bar = $('bar');
+  const pctAt = e => { const r = bar.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
+  bar.addEventListener('pointerdown', e => {
+    if (!st.dur || e.button !== 0) return;
+    dragging = true; dragPct = pctAt(e);
+    bar.setPointerCapture(e.pointerId); bar.classList.add('drag'); kick();
+  });
+  bar.addEventListener('pointermove', e => { if (dragging) { dragPct = pctAt(e); if (!raf) paint(); } });
+  const endDrag = e => {
+    if (!dragging) return;
+    dragging = false; bar.classList.remove('drag');
+    if (e.type === 'pointerup') { const sec = dragPct * st.dur; setPos(sec); cmd('seek:' + sec.toFixed(2)); }
+    paint(); kick();
+  };
+  bar.addEventListener('pointerup', endDrag);
+  bar.addEventListener('pointercancel', endDrag);
+
+  function seekBy(d) { if (!st.dur) return; const sec = Math.min(st.dur - 1, Math.max(0, posNow() + d)); setPos(sec); cmd('seek:' + sec.toFixed(2)); paint(); }
+
+  /* ---- buttons ---- */
+  $('pp').onclick = () => cmd('toggle');
+  $('next').onclick = () => cmd('next');
+  $('prev').onclick = () => cmd('prev');
+  $('like').onclick = () => cmd('like');
+  $('shuffle').onclick = () => cmd('shuffle');
+  $('repeat').onclick = () => cmd('repeat');
+  $('open').onclick = () => window.aura.miniAction('show-main');
+  $('close').onclick = () => window.aura.miniAction('close');
+  $('art').ondblclick = () => window.aura.miniAction('show-main');
+
+  /* ---- keyboard ---- */
+  document.addEventListener('keydown', e => {
+    if (e.repeat && !/Arrow/.test(e.key)) return;
+    const k = e.key.toLowerCase();
+    if (k === ' ' || k === 'k') { if (e.target.tagName !== 'BUTTON' || k === 'k') { e.preventDefault(); cmd('toggle'); } }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); e.ctrlKey ? cmd('next') : seekBy(5); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); e.ctrlKey ? cmd('prev') : seekBy(-5); }
+    else if (k === 'l') cmd('like');
+    else if (k === 's') cmd('shuffle');
+    else if (k === 'r') cmd('repeat');
+    else if (e.key === 'Escape') window.aura.miniAction('close');
+    else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') window.aura.miniAction('show-main');
+  });
+</script>
+</body>
+</html>

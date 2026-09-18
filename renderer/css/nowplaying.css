@@ -1,0 +1,60 @@
+/* nowplaying.css — the Now Playing sheet over its WebGL scene (fx/nowplaying.js) */
+
+/* the scene canvas replaces the ambient backdrop and draws the cover itself;
+   the <img> stays in the layout (transparent) for sizing, clicks and menus */
+canvas.np-gl { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+html.no-np-fx canvas.np-gl { display: none; }
+html.np-gl:not(.no-np-fx) .np-fx { display: none; }
+html.np-gl:not(.no-np-fx) .np-art { opacity: 0; box-shadow: none; }
+html.np-gl:not(.no-np-fx) .np-glare,
+html.np-gl:not(.no-np-fx) .np-art-wrap::before { display: none; }
+html.np-gl:not(.no-np-fx) .np-art-wrap { will-change: auto; }
+
+/* text over a living backdrop: a whisper of shadow keeps it crisp */
+html.np-gl:not(.no-np-fx) #nowPlaying :is(.np-title, .np-artist, .np-from, .np-times) { text-shadow: 0 1px 14px rgba(0, 0, 0, .45); }
+html.np-gl:not(.no-np-fx) #nowPlaying .chip { background: rgba(10, 11, 14, .32); border-color: rgba(255, 255, 255, .09); }
+html.np-gl:not(.no-np-fx) #nowPlaying button.chip:hover { background: rgba(255, 255, 255, .14); }
+html.np-gl:not(.no-np-fx) .np-upnext .q-row { background: rgba(10, 11, 14, .34); }
+html.np-gl:not(.no-np-fx) .np-upnext .q-row:hover { background: rgba(255, 255, 255, .1); }
+
+/* play button: the bloom behind it is drawn in WebGL; here just a crisp rim */
+html.np-gl:not(.no-np-fx) .np-play {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .5), 0 12px 36px rgba(var(--tint), .38), inset 0 -2px 6px rgba(0, 0, 0, .12);
+}
+
+/* ---------- lyrics ---------- */
+
+@property --lp { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+@keyframes npLyrSweep { from { --lp: 0%; } to { --lp: 118%; } }
+
+#npLyrics .lyr-scroll { position: relative; scroll-behavior: auto; }
+#npLyrics .lyr-line {
+  width: fit-content; max-width: 100%;
+  transform-origin: left center;
+  transform: scale(calc(1 - var(--d, 0) * .035));
+  filter: blur(calc(var(--d, 0) * .45px));
+  opacity: calc(1 - var(--d, 0) * .1);
+  transition: color var(--dur-slow, .42s) ease, transform var(--spring-gentle-dur, .6s) var(--spring-gentle, ease), filter var(--dur-slow, .42s) ease, opacity var(--dur-slow, .42s) ease;
+}
+#npLyrics .lyr-line:hover { filter: none; opacity: 1; }
+#npLyrics .lyr-line.static { transform: none; filter: none; opacity: 1; }
+#npLyrics .lyr-line.on {
+  color: transparent;
+  background: linear-gradient(90deg, #fff calc(var(--lp) - 18%), rgba(255, 255, 255, .42) var(--lp));
+  -webkit-background-clip: text; background-clip: text;
+  transform: scale(1.035);
+  filter: drop-shadow(0 0 16px rgba(var(--tint), .5)) drop-shadow(0 0 2px rgba(255, 255, 255, .25));
+  opacity: 1;
+  animation: npLyrSweep var(--lyr-dur, 4s) linear var(--lyr-delay, 0s) both;
+}
+#nowPlaying.paused #npLyrics .lyr-line.on { animation-play-state: paused; }
+html.reduce-motion #npLyrics .lyr-line.on { animation: none; --lp: 118%; }
+html.reduce-motion #npLyrics .lyr-line { transition: none; }
+
+/* Lyrics keep advancing while nobody can see them (sheet closed, or open on
+   the cover). Their transitions and the sweep then restart on every line, so
+   something is always animating and Chromium restyles at the display's full
+   refresh rate (360 Hz here). Freeze them unless the lyrics are on screen. */
+#nowPlaying:not(.open) #npLyrics .lyr-line,
+#nowPlaying:not(.lyrics) #npLyrics .lyr-line { transition: none; animation: none; }
+#queuePanel:not(.open) .lyr-line { transition: none; }

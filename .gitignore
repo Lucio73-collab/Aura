@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+release/
+dist/
+
+# Local tooling / assistant state
+.claude/
+
+# Personal data (library caches, stray AppData copies)
+UsersLucio*/
+*library-cache.json
+
+# Local config (Spotify client ID is set per machine)
+spotify.config.json
+
+# Generated test audio (scripts/gen-test-audio.js)
+.test-music/
+
+# Internal working briefs
+AURA_*_BRIEF.md
+
+# Python / OS / editor junk
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.log
+.env
+.env.*

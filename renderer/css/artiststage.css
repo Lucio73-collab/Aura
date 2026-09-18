@@ -1,0 +1,41 @@
+/* artiststage.css — the per-artist 3D piece in the artist hero (fx/artiststage.js).
+   It fills the right side of the hero, full height, and the name block
+   makes room for it. Scrolls away with the same parallax as the name. */
+
+.artist-hero.has-stage .ah-inner { right: calc(clamp(280px, 38%, 520px) + 8px); }
+
+.as-stage {
+  position: absolute; z-index: 1; top: 12px; bottom: 0; right: 12px;
+  width: clamp(280px, 38%, 520px);
+  transform: translateY(calc(var(--sy, 0) * .1px));
+  opacity: calc(1 - var(--sy, 0) / 380);
+}
+.as-stage canvas {
+  display: block; width: 100%; height: 100%;
+  cursor: grab; touch-action: none;
+}
+.as-stage.grabbing canvas { cursor: grabbing; }
+
+.as-cap {
+  position: absolute; left: 0; right: 0; bottom: 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  pointer-events: none; text-align: center;
+}
+.as-title {
+  font: 700 11px/1 var(--display); letter-spacing: .22em; text-transform: uppercase;
+  color: rgba(255, 255, 255, .62); text-shadow: 0 1px 12px rgba(0, 0, 0, .6);
+}
+.as-note {
+  font: 500 11px/1 var(--display); color: rgba(255, 255, 255, .5);
+  opacity: 0; transform: translateY(-3px); transition: opacity .25s ease, transform .25s ease;
+}
+.as-stage:hover .as-note { opacity: 1; transform: none; }
+
+.as-stage.entering .as-cap { animation: asCap .8s var(--ease, ease-out) 1.1s backwards; }
+@keyframes asCap { from { opacity: 0; transform: translateY(6px); } }
+
+@media (max-width: 960px) {
+  .as-stage { display: none; }
+  .artist-hero.has-stage .ah-inner { right: 32px; }
+}
+html.reduce-motion .as-stage * { animation: none !important; transition: none !important; }

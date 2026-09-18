@@ -1,0 +1,72 @@
+{
+  "name": "aura-music",
+  "version": "1.0.0",
+  "description": "Local music player. Apple Music looks, Spotify brains, a talking DJ, your files.",
+  "main": "electron/main.js",
+  "author": "Lucio",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/run.js",
+    "dist": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "kokoro-js": "^1.2.1",
+    "music-metadata": "^7.14.0",
+    "node-id3": "^0.2.9",
+    "node-taglib-sharp": "^6.0.3",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "dev.lucio.aura",
+    "productName": "Aura",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "renderer/**",
+      "assets/**",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/onnxruntime-node/**",
+      "**/node_modules/@huggingface/**",
+      "**/node_modules/sharp/**",
+      "**/node_modules/@img/**"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico",
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Aura",
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Audio"
+    }
+  }
+}
