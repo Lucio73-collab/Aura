@@ -10,6 +10,7 @@ const S = {
   songSort: { key: 'title', dir: 1 }, plSort: {}, discoFilter: null,
   lyricsCache: new Map(),
   spTracks: new Map(),
+  nas: { configured: false, state: 'unconfigured' }, // NAS connection status, see nas.js
   taste: { artistWeights: {}, genreWeights: {}, recentIds: [] },
   recentPlayed: []
 };
@@ -24,6 +25,19 @@ const spApi = new Proxy({}, {
     return r;
   }
 });
+
+/* NAS calls go through here (window.aura.nas*): a failure arrives as
+   { __nasError, code, message } and is thrown as an Error with .code. */
+const nasApi = new Proxy({}, {
+  get: (_, name) => async (...args) => {
+    const r = await window.aura['nas' + name[0].toUpperCase() + name.slice(1)](...args);
+    if (r && r.__nasError) { const e = new Error(r.message || r.code); e.code = r.code; throw e; }
+    return r;
+  }
+});
+// A NAS song that can't be played right now: the NAS is unreachable and it
+// hasn't been downloaded for offline. Local (and Spotify) songs never are.
+const isUnavailable = t => !!t && t.source === 'navidrome' && !t.offline && !!S.nas.configured && (S.nas.state === 'offline' || S.nas.state === 'auth-failed');
 
 let ctxSeq = 0;
 function listCtx(ids, name, sourceType, sourceId) {
@@ -99,7 +113,7 @@ function toast(msg, action) {
    original. Pick the width for the largest on-screen size at ~2x density.
    Spotify CDN urls and anything else pass through untouched. */
 function artUrl(url, w) {
-  if (!url || !/^\/(art|cover)\//.test(url)) return url;
+  if (!url || !/^\/(art|cover|nascover)\//.test(url)) return url;
   return url + (url.includes('?') ? '&' : '?') + 'w=' + w;
 }
 const ART_SM = 128, ART_MD = 400, ART_LG = 640, ART_XL = 1024;
@@ -245,7 +259,7 @@ function queueMissingArt() {
   if (S.settings.fetchArt === false) return;
   for (const a of S.albums) {
     if (artFetchSeen.size >= ART_FETCH_SESSION_CAP) break;
-    if (a.cover || a.custom || a.artFetchTried || artFetchSeen.has(a.id) || artFetchQueue.includes(a.id)) continue;
+    if (a.cover || a.custom || a.source === 'navidrome' || a.artFetchTried || artFetchSeen.has(a.id) || artFetchQueue.includes(a.id)) continue;
     artFetchQueue.push(a.id);
   }
   pumpArtFetch();
@@ -328,7 +342,7 @@ function recommend(seedTracks, excludeIds, n = 1) {
 
   const scored = [];
   for (const t of S.tracks) {
-    if (excludeIds.has(t.id)) continue;
+    if (excludeIds.has(t.id) || isUnavailable(t)) continue;
     let s = 0;
     const artists = t.artists && t.artists.length ? t.artists : [t.artistKey];
     for (const name of artists) s += (w.artist.get(name) || 0) * 5;

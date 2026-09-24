@@ -56,8 +56,8 @@ function albumCardHTML(a, showArtist = true) {
   const year = a.releaseDate ? fmtRelease(a.releaseDate).split(',').pop().trim() : (a.year || '');
   const who = a.type !== 'album' ? TYPE_LABEL[a.type]
     : showArtist ? `<span class="link" data-action="open-artist" data-artist="${esc(a.artist)}">${esc(a.artist)}</span>` : 'Album';
-  const sub = [year, who, a.unreleased ? 'Unreleased' : ''].filter(Boolean).join(' · ');
-  return `<div class="card" data-action="open-album" data-key="${a.id}">
+  const sub = [year, who, a.unreleased ? 'Unreleased' : '', a.source === 'navidrome' ? 'NAS' : ''].filter(Boolean).join(' · ');
+  return `<div class="card" data-action="open-album" data-key="${a.id}"${nasAlbumAttrs(a)}>
     <div class="card-art tilt">
       ${a.cover ? `<img loading="lazy" decoding="async" src="${artUrl(a.cover, ART_MD)}" alt="">` : `<span class="art-ph">${icon('music')}</span>`}
       <span class="glare"></span>
@@ -117,7 +117,7 @@ function trackRowHTML(t, i, o = {}) {
   if (grid !== 'album') {
     cells += `<div class="row-art">${t.cover ? `<img loading="lazy" decoding="async" src="${artUrl(t.cover, ART_SM)}" alt="">` : `<span class="art-ph">${icon('music')}</span>`}${grid === 'simple' ? eqHTML() : ''}</div>`;
   }
-  cells += `<div class="row-main"><div class="row-title">${isSp ? '<span class="sp-dot" title="Spotify"></span>' : ''}${esc(t.title)}${t.bonus ? '<span class="tag" title="Found alongside this album, not on its official tracklist">Bonus</span>' : ''}</div><div class="row-sub">${artistCreditsHTML(t)}</div></div>`;
+  cells += `<div class="row-main"><div class="row-title">${isSp ? '<span class="sp-dot" title="Spotify"></span>' : nasDotHTML(t)}${esc(t.title)}${t.bonus ? '<span class="tag" title="Found alongside this album, not on its official tracklist">Bonus</span>' : ''}</div><div class="row-sub">${artistCreditsHTML(t)}</div></div>`;
   if (grid === 'popular') {
     const plays = S.counts[t.id] || 0;
     cells += `<div class="row-plays">${plays ? plays.toLocaleString() + ' play' + (plays === 1 ? '' : 's') : ''}</div>`;
@@ -132,7 +132,7 @@ function trackRowHTML(t, i, o = {}) {
   cells += `<div class="row-dur">${fmtTime(t.duration)}</div>
     <button class="icon-btn row-more" data-action="row-menu" data-id="${t.id}" title="More">${icon('dots')}</button>`;
   const style = o.top != null ? ` style="position:absolute;top:${o.top}px;left:0;right:0;"` : '';
-  return `<div class="row grid-${grid} ${playing ? 'playing' : ''}" data-action="row-play" data-id="${t.id}" data-index="${i}"${o.draggable ? ' draggable="true"' : ''}${style}>${cells}</div>`;
+  return `<div class="row grid-${grid} ${playing ? 'playing' : ''}" data-action="row-play" data-id="${t.id}" data-index="${i}"${nasSrcAttrs(t)}${o.draggable ? ' draggable="true"' : ''}${style}>${cells}</div>`;
 }
 
 function tableHeadHTML(sort, storeKey) {
@@ -173,7 +173,7 @@ function buildMainNav() {
 
 function renderPlaylistNav() {
   $('#playlistNav').innerHTML = S.playlists.map(p =>
-    `<a href="#/playlist/${p.id}" class="nav-item pl" data-plnav="${p.id}"><span class="pl-ico">${icon('queue')}</span><span class="nav-label">${esc(p.name)}</span></a>`
+    `<a href="#/playlist/${p.id}" class="nav-item pl" data-plnav="${p.id}"${p.source === 'navidrome' ? ' title="NAS playlist"' : ''}><span class="pl-ico">${p.source === 'navidrome' ? '<span class="nas-pl-dot"></span>' : icon('queue')}</span><span class="nav-label">${esc(p.name)}</span></a>`
   ).join('');
   markNav();
 }
@@ -719,7 +719,7 @@ function renderPlaylist(id) {
     <header class="detail-head" id="detailHead">
       <div class="detail-art drop-cover" data-cover-kind="playlist" data-cover-id="${id}" title="Drop or paste a cover here">${pl.coverFile ? `<img src="${artUrl('/cover/' + pl.coverFile, ART_LG)}" alt="">` : mosaic}</div>
       <div class="detail-info">
-        <div class="eyebrow">Playlist</div>
+        <div class="eyebrow">${pl.source === 'navidrome' ? 'NAS playlist' : 'Playlist'}</div>
         <h1 class="editable" data-action="pl-rename" title="Click to rename">${esc(pl.name)}</h1>
         <div class="detail-meta">${entries.length} song${entries.length === 1 ? '' : 's'}, ${fmtLong(total)}</div>
         <div class="detail-actions">
@@ -786,7 +786,7 @@ function renderSearch(q) {
     ${tr.length ? sectionHead('Songs') + tableHeadHTML({ key: '', dir: 1 }, 'none') + `<div class="rows grid-full" data-ctxkey="${ctx}">${tr.map((t, i) => trackRowHTML(t, i)).join('')}</div>` : ''}
     ${!tr.length && !al.length && !ar.length ? '<div class="empty-state">Nothing found.</div>' : ''}
   </div>`;
-  if (q) renderSpotifySearchSection(q);
+  if (q) { renderSpotifySearchSection(q); nasSearchSupplement(q); }
 }
 
 async function renderStats(range = '30d') {
@@ -938,7 +938,7 @@ async function renderSettings() {
   const seq = S.routeSeq;
   const st = await window.aura.settingsGet();
   S.settings = st;
-  const [oll, ttsState, def] = await Promise.all([window.aura.ollamaStatus(), window.aura.ttsStatus(), window.aura.defaultFolder()]);
+  const [oll, ttsState, def] = await Promise.all([window.aura.ollamaStatus(), window.aura.ttsStatus(), window.aura.defaultFolder(), nasPrefetchSettings()]);
   // the Ollama check can take a moment: don't paint Settings over a page opened meanwhile
   if (seq !== S.routeSeq) return;
   const folders = (st.musicFolders || []).map(f =>
@@ -1012,6 +1012,8 @@ async function renderSettings() {
         <button class="btn small" data-action="dl-voice">${ttsState === 'ready' ? 'Loaded' : ttsState === 'standby' ? 'Load now' : 'Download now'}</button></div>
       ${row('Talk every', 'Tracks between DJ lines', `<select id="setEvery" class="select">${[3, 4, 5, 6].map(n => `<option value="${n}" ${st.djEvery === n ? 'selected' : ''}>${n} tracks</option>`).join('')}</select>`)}
     </div>
+
+    ${nasSettingsHTML()}
 
     ${spotifySettingsHTML()}
 
@@ -1184,7 +1186,7 @@ function openTrackMenu(x, y, trackId) {
     ...artists.map(n => ({ label: artists.length > 1 ? 'Go to ' + n : 'Go to artist', icon: 'user', act: () => goArtist(n) })),
     { label: 'Copy song info', icon: 'copy', act: () => navigator.clipboard.writeText(`${t.title} - ${t.artist}${t.album ? ' (' + t.album + ')' : ''}`).then(() => toast('Copied to clipboard'), () => toast('Could not copy')) },
     { sep: true },
-    { label: 'Edit tags', icon: 'edit', act: () => tagEditorModal(t) },
+    t.source === 'navidrome' ? null : { label: 'Edit tags', icon: 'edit', act: () => tagEditorModal(t) },
     { label: 'Edit lyrics', icon: 'mic', act: () => lyricsEditModal(t) }
   ];
   // Bonus tracks are auto-attached to an album by folder heuristics (see
@@ -1205,7 +1207,7 @@ function openTrackMenu(x, y, trackId) {
       route();
     }});
   }
-  items.push({ label: 'Delete from disk', icon: 'trash', danger: true, act: () => {
+  if (t.source !== 'navidrome') items.push({ label: 'Delete from disk', icon: 'trash', danger: true, act: () => {
     confirmModal('Delete this song?', `"${t.title}" will be moved to the Recycle Bin. This can't be undone from inside Aura.`, 'Delete', async () => {
       const res = await window.aura.deleteTrackFile(trackId);
       if (!res.ok) { toast(res.error || 'Could not delete file'); return; }
@@ -1250,11 +1252,12 @@ function openAlbumMenu(x, y, a, onPage) {
     onPage ? null : { label: 'Go to album', icon: 'disc', act: () => navigate('#/album/' + a.id) },
     { label: 'Go to artist', icon: 'user', act: () => goArtist(a.artist) },
     { label: 'Discography', icon: 'grid', act: () => navigate('#/discography/' + encodeURIComponent(a.artist)) },
+    ...nasAlbumMenuItems(a),
     { sep: true },
     { label: 'Edit album', icon: 'edit', act: () => albumEditorModal(a) },
     { label: 'Add songs to album', icon: 'listPlus', act: () => a.custom ? addSongsModal('album', a.id) : toast('Only manual albums can take extra songs. Create one via New album.') },
-    { label: 'Import songs…', icon: 'plus', act: () => importSongsInto({ artist: a.artist, album: a.title }) },
-    { label: 'Fix tags…', icon: 'tag', act: () => albumFixTagsModal(a) },
+    a.source === 'navidrome' ? null : { label: 'Import songs…', icon: 'plus', act: () => importSongsInto({ artist: a.artist, album: a.title }) },
+    a.source === 'navidrome' ? null : { label: 'Fix tags…', icon: 'tag', act: () => albumFixTagsModal(a) },
     a.custom ? { sep: true } : null,
     a.custom ? { label: 'Delete album (keeps files)', icon: 'trash', danger: true, act: () => deleteCustomAlbum(a) } : null
   ]);
@@ -1326,10 +1329,12 @@ function confirmModal(title, message, confirmLabel, onConfirm) {
 let pendingAdd = null;
 function addToPlaylistModal(ids) {
   pendingAdd = ids;
-  const list = S.playlists.map(p => `<button class="menu-item" data-action="atp" data-pl="${p.id}">${esc(p.name)}</button>`).join('');
+  // a NAS playlist can only hold NAS songs
+  const list = S.playlists.filter(p => p.source !== 'navidrome' || ids.some(id => String(id).startsWith('nd:')))
+    .map(p => `<button class="menu-item" data-action="atp" data-pl="${p.id}">${esc(p.name)}${p.source === 'navidrome' ? ' <span class="muted">(NAS)</span>' : ''}</button>`).join('');
   openModal(`<h3>Add to playlist</h3>
     <div class="modal-list">${list || '<div class="muted pad">No playlists yet</div>'}</div>
-    <div class="modal-actions"><button class="btn ghost" data-action="modal-close">Cancel</button><button class="btn primary" data-action="atp-new">${icon('plus')}New playlist</button></div>`);
+    <div class="modal-actions"><button class="btn ghost" data-action="modal-close">Cancel</button>${nasNewPlaylistBtnHTML(ids)}<button class="btn primary" data-action="atp-new">${icon('plus')}New playlist</button></div>`);
 }
 
 function addSongsModal(target, id) {

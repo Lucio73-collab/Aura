@@ -1,0 +1,40 @@
+/* nas.css - NAS (Navidrome) source: source dot, sidebar status, offline dimming, settings bits.
+   Only adds new classes; the look follows the existing Spotify markers (.sp-dot). */
+:root { --nas: #4fd1c5; }
+
+.nas-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--nas); margin-right: 6px; vertical-align: 2px; flex: none;
+}
+.nas-pl-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--nas); }
+
+/* sidebar: small status row above Mini player / Settings */
+.nas-status {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 6px 12px;
+  border-radius: 8px; cursor: pointer; user-select: none;
+  font: 500 12px var(--body); color: var(--text-faint);
+}
+.nas-status[hidden] { display: none; }
+.nas-status:hover, .nas-status:focus-visible { background: var(--hover); color: var(--text); outline: none; }
+.nas-led { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .28); flex: none; }
+.nas-status[data-state="online"] .nas-led { background: #3ecf7a; }
+.nas-status[data-state="connecting"] .nas-led { background: #e0b341; animation: nas-pulse 1.1s ease-in-out infinite; }
+.nas-status[data-state="offline"] .nas-led, .nas-status[data-state="auth-failed"] .nas-led { background: #ef6a5b; }
+@keyframes nas-pulse { 50% { opacity: .35; } }
+
+/* NAS off: its songs/albums stay visible but read as unavailable (downloads stay lit) */
+html.nas-offline .row[data-src="navidrome"]:not([data-offline]) { opacity: .4; }
+html.nas-offline .card[data-src="navidrome"]:not([data-offline]) { opacity: .5; }
+html.nas-offline .q-row:has(.nas-dot) { opacity: .45; }
+
+/* settings */
+/* the three text fields line up whatever their label is */
+#nasCard .set-input { flex: 0 1 58%; }
+#nasCard .nas-servers { min-height: 52px; resize: vertical; font-family: inherit; line-height: 1.4; }
+.nas-test-row { justify-content: flex-start; }
+.nas-test-row[hidden] { display: none; }
+.nas-test { font: 500 13px var(--body); }
+.nas-test.ok { color: #3ecf7a; }
+.nas-test.bad { color: #ef6a5b; }
+.dot.warn { background: #e0b341; }
+.dot.bad { background: #ef6a5b; }
