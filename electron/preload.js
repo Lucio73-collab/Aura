@@ -80,6 +80,21 @@ contextBridge.exposeInMainWorld('aura', {
   showWindow: call('win:show'),
   quitApp: call('app:quit'),
 
+  // NAS results may be { __nasError, code, message }; renderer/js/nas.js (nasApi) throws them on the page side
+  nasStatus: call('nas:status'),
+  nasGetConfig: call('nas:getConfig'),
+  nasSetConfig: call('nas:setConfig'),
+  nasSetCredential: call('nas:setCredential'),
+  nasForget: call('nas:forget'),
+  nasTest: call('nas:test'),
+  nasRefresh: call('nas:refresh'),
+  nasSearch: call('nas:search'),
+  nasScrobble: call('nas:scrobble'),
+  nasCreatePlaylist: call('nas:createPlaylist'),
+  nasDownload: call('nas:download'),
+  nasCancelDownload: call('nas:cancelDownload'),
+  nasRemoveDownload: call('nas:removeDownload'),
+
   spStatus: spCall('sp:status'),
   spSetClientId: spCall('sp:setClientId'),
   spRedirectUri: spCall('sp:redirectUri'),
