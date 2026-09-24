@@ -592,7 +592,10 @@ H('data:backup', async () => {
     store.flush();
     // thumbs/ is a regenerable cache of downscaled art, not curation
     const thumbs = path.join(store.dir(), 'thumbs');
-    fs.cpSync(store.dir(), dest, { recursive: true, filter: src => src !== thumbs });
+    // NAS downloads/art/library are regenerable (and can be huge), and the
+    // encrypted credential is bound to this Windows account: none of them belong in a backup
+    const skip = new Set(['nas-offline', 'nas-art', 'nas-library.json', 'nas-credential.bin', 'nas-scrobbles.json', 'nas-offline.json']);
+    fs.cpSync(store.dir(), dest, { recursive: true, filter: src => src !== thumbs && !skip.has(path.basename(src)) });
     return { ok: true, path: dest };
   } catch (e) {
     return { ok: false, error: e.message };
