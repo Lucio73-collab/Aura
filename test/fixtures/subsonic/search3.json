@@ -1,0 +1,1 @@
+{"subsonic-response":{"status":"ok","version":"1.16.1","openSubsonic":true,"searchResult3":{"artist":[{"id":"ar1","name":"Kanye West","albumCount":1}],"album":[{"id":"al1","name":"Graduation","artist":"Kanye West","songCount":2}],"song":[{"id":"s1","title":"Good Morning","album":"Graduation","albumId":"al1","artist":"Kanye West","track":1,"duration":195,"suffix":"flac"}]}}}
