@@ -153,7 +153,7 @@ const AudioEngine = (() => {
       return fallback;
     }
   }
-  const cbs = { time: [], started: [], playstate: [], stopped: [] };
+  const cbs = { time: [], started: [], playstate: [], stopped: [], loaderror: [] };
   const on = (ev, fn) => (cbs[ev] || (cbs[ev] = [])).push(fn);
   const emit = (ev, ...a) => (cbs[ev] || []).forEach(f => { try { f(...a); } catch (e) { console.error(e); } });
 
@@ -328,6 +328,7 @@ const AudioEngine = (() => {
   // fade-in lands on the lift instead of cutting into it.
   function findHighlight(id) {
     if (!highlights.has(id)) highlights.set(id, (async () => {
+      if (String(id).startsWith('nd:')) return null; // don't pull a whole NAS song over the network for a hover taste
       const buf = await (await fetch(url(id))).arrayBuffer();
       const dec = await new OfflineAudioContext(1, 1, PREVIEW_SR).decodeAudioData(buf);
       const chans = [...Array(dec.numberOfChannels).keys()].map(c => dec.getChannelData(c));
@@ -460,7 +461,10 @@ const AudioEngine = (() => {
     });
     d.el.addEventListener('play', () => { if (d === act()) emit('playstate', true); });
     d.el.addEventListener('pause', () => { if (d === act() && !transitioning && !gated) emit('playstate', false); });
-    d.el.addEventListener('error', () => { if (d === act() && d.trackId) { console.warn('deck error', d.el.error); emit('stopped'); } });
+    d.el.addEventListener('error', () => { if (d === act() && d.trackId) { console.warn('deck error', d.el.error); emit('stopped', 'error', d.trackId); }
+      // the preloaded next song failed to load (NAS dropped or refused it): say so now, while there is
+      // still time to plan a different next song, instead of fading into a silent deck
+      else if (d.trackId && d.trackId === nextQueued && !transitioning) emit('loaderror', d.trackId); });
   }
 
   function duck(onOff) { ramp(musicBus, onOff ? 0.22 : 1, onOff ? 0.3 : 0.5, 'lin'); }

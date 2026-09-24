@@ -22,7 +22,8 @@ const LocalSource = (() => {
   AudioEngine.on('started', id => emit('started', id));
   AudioEngine.on('time', (t, dur, id) => emit('time', t, dur, id));
   AudioEngine.on('playstate', p => emit('playstate', p));
-  AudioEngine.on('stopped', () => emit('stopped'));
+  AudioEngine.on('loaderror', id => emit('loaderror', id)); // the preloaded next song could not be loaded
+  AudioEngine.on('stopped', (...a) => emit('stopped', ...a)); // ('error', trackId) when a deck failed to load
   return {
     on,
     scheduleNext: id => AudioEngine.scheduleNext(id),
@@ -257,10 +258,14 @@ const Playback = (() => {
     src.on('playstate', (...a) => { if (active === name) emit('playstate', ...a); });
     src.on('stopped', (...a) => {
       if (active !== name || switching) return;
+      // a NAS song whose stream failed (NAS dropped, file gone): tell the player,
+      // which skips on, instead of treating it as a song that ended
+      if (a[0] === 'error' && String(a[1] || '').startsWith('nd:')) { const t = S.byId.get(a[1]); if (t) { emit('unavailable', t, 'failed'); return; } }
       if (!handleNaturalEnd()) emit('stopped', ...a);
     });
   }
   SpotifySource.on('error', e => emit('error', e));
+  LocalSource.on('loaderror', id => { const t = S.byId.get(id); if (active === 'local' && t && t.source === 'navidrome') emit('unavailable', t, 'preload'); });
 
   function handleNaturalEnd() {
     if (handedOffNext || !nextQueued) return false;
@@ -321,10 +326,23 @@ const Playback = (() => {
   });
   LocalSource.on('started', () => { localHandoffArmed = false; });
 
+  /* A NAS song that hasn't produced any sound a while after Play (slow or
+     stuck link) is given up on, so the queue moves on instead of hanging. */
+  const NAS_START_TIMEOUT_MS = 15000;
+  function watchNasStart(track, seq) {
+    setTimeout(() => {
+      if (seq !== playSeq || active !== 'local') return;
+      if (LocalSource.isPaused() || LocalSource.pos().t > 0.25) return; // paused by the user, or it started
+      emit('unavailable', track, 'slow');
+    }, NAS_START_TIMEOUT_MS);
+  }
+
   async function playNow(track) {
     if (!track) return;
     const seq = ++playSeq;
     const stale = () => seq !== playSeq;
+    // NAS song with the NAS unreachable (and no offline copy): don't try
+    if (isUnavailable(track)) { emit('unavailable', track, 'offline'); return; }
     if (track.source === 'spotify') {
       if (!track.uri) { emit('error', Object.assign(new Error('This Spotify song has no playable link'), { code: 'UNKNOWN' })); return; }
       let deviceId;
@@ -361,6 +379,7 @@ const Playback = (() => {
       active = 'local';
       handedOffNext = false; localHandoffArmed = false;
       LocalSource.play(track.id);
+      if (track.source === 'navidrome') watchNasStart(track, seq);
     }
   }
 

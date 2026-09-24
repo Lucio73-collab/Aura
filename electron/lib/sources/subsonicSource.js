@@ -28,7 +28,7 @@ const QUALITY = {
   'mp3-128': { format: 'mp3', maxBitRate: 128 }
 };
 const DEFAULT_CONFIG = { enabled: false, servers: [], username: '', authMode: 'password', qualityHome: 'original', qualityAway: 'original' };
-const DEFAULT_TIMING = { probeMs: 2500, apiMs: 8000, streamConnectMs: 10000, offlineRetryMs: 20000, onlineCheckMs: 60000, netPollMs: 5000, staleSyncMs: 10 * 60 * 1000, syncEveryMs: 30 * 60 * 1000, syncConcurrency: 4 };
+const DEFAULT_TIMING = { probeMs: 2500, apiMs: 8000, streamConnectMs: 10000, offlineRetryMs: 10000, onlineCheckMs: 15000, netPollMs: 5000, staleSyncMs: 10 * 60 * 1000, syncEveryMs: 30 * 60 * 1000, syncConcurrency: 4 };
 
 const stripId = id => String(id || '').replace(/^nd:/, '');
 const stripPl = id => String(id || '').replace(/^ndpl:/, '');
