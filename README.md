@@ -42,6 +42,13 @@ Output lands in `release/`: an `Aura Setup 1.0.0.exe` installer plus a portable 
 - Artist pages sort by release date like Spotify, with a Latest Release hero
 - Tag editor saves edits inside Aura without touching files; optional "Write tags to MP3" if you want them baked in
 
+**NAS (Navidrome / Subsonic)**
+- Settings > NAS: server addresses (home first, then Tailscale), username and password. The password is stored encrypted by Windows, never in plain text
+- NAS songs, albums and playlists sit next to your local music, marked with a teal dot, and go through the same crossfade, automix, DJ and search
+- The NAS being off never affects local music: its items dim, a status dot shows online/offline, and shuffle and the DJ skip them
+- Plays are scrobbled to Navidrome, albums can be downloaded for offline, and an away quality (MP3) can be set for mobile data
+- Design notes and test checklist: `docs/nas-source-log.md`
+
 **Extras**
 - Liked Songs with heart everywhere
 - Synced lyrics view (Apple style): reads embedded tags, .lrc sidecars, or fetches from LRCLIB with one click
