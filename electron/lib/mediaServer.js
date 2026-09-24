@@ -9,6 +9,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { Readable } = require('stream');
+const localSource = require('./sources/localSource');
 
 const RENDERER_DIR = path.join(__dirname, '..', '..', 'renderer');
 
@@ -112,9 +114,8 @@ function serveStatic(req, res, pathname) {
   sendFile(req, res, file, st, MIME[path.extname(file).toLowerCase()] || 'application/octet-stream');
 }
 
-function serveTrack(req, res, library, rawId) {
-  let id; try { id = decodeURIComponent(rawId); } catch { id = rawId; }
-  const file = library.filePath(id);
+/* Local file with Range support. */
+function serveFile(req, res, file) {
   if (!file || !fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
   let stat;
   try { stat = fs.statSync(file); } catch { res.writeHead(404); res.end(); return; }
@@ -141,6 +142,42 @@ function serveTrack(req, res, library, rawId) {
   }
 }
 
+/* Audio for a track id, whichever source owns it (see sources/index.js): a
+   local file, or an upstream HTTP response (the NAS) piped through, so the
+   renderer only ever sees this same-origin URL and never a credential. */
+async function serveTrack(req, res, sources, rawId) {
+  let id; try { id = decodeURIComponent(rawId); } catch { id = rawId; }
+  const src = sources.forTrackId(id);
+  if (!src || !src.openStream) { res.writeHead(404); res.end(); return; }
+  const ac = new AbortController();
+  res.on('close', () => ac.abort()); // player moved on: stop pulling from the NAS
+  let opened;
+  try { opened = await src.openStream(id, { range: req.headers.range, signal: ac.signal }); }
+  catch (e) { if (!res.headersSent) { res.writeHead(e && e.code === 'NOT_FOUND' ? 404 : 503, { 'Retry-After': '5' }); res.end(); } return; }
+  if (!opened) { res.writeHead(404); res.end(); return; }
+  if (opened.kind === 'file') return serveFile(req, res, opened.path);
+  const up = opened.response;
+  const headers = { 'Cache-Control': 'no-store' };
+  for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) { const v = up.headers.get(h); if (v) headers[h] = v; }
+  res.writeHead(up.status, headers);
+  if (!up.body) { res.end(); return; }
+  const body = Readable.fromWeb(up.body);
+  body.on('error', () => res.destroy());
+  body.pipe(res);
+}
+
+/* NAS cover art: fetched once by the main process, then served from disk
+   (same ?w= size buckets as /art and /cover). */
+async function serveNasCover(req, res, u, sources, rawId) {
+  const nas = sources.get('navidrome');
+  let id; try { id = decodeURIComponent(rawId); } catch { id = rawId; }
+  if (!nas || !nas.coverArt) { res.writeHead(404); res.end(); return; }
+  const hit = await nas.coverArt(id, parseInt(u.searchParams.get('w'), 10) || 400);
+  const st = hit && statFile(hit.path);
+  if (!st) { res.writeHead(404); res.end(); return; }
+  sendFile(req, res, hit.path, st, hit.type || 'image/jpeg', 'max-age=86400');
+}
+
 function serveArt(req, res, u, store, key) {
   // albumKey is either a plain 16-hex-char hash, or "sgl-" + one (see
   // library.js) for a standalone single/bonus track. Stripping to
@@ -165,13 +202,16 @@ function serveCover(req, res, u, store, name) {
   serveImage(req, res, u, store, file, 'cover-' + clean.replace(/\.[^.]*$/, ''), MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'max-age=31536000, immutable').catch(() => res.destroy());
 }
 
-function start(store, library) {
+function start(store, library, sources) {
+  // callers that only know about local files (older tests) get a local-only registry
+  if (!sources) { const local = localSource.create(library); sources = { get: () => null, forTrackId: () => local }; }
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       try {
         const u = new URL(req.url, 'http://127.0.0.1');
         const parts = u.pathname.split('/').filter(Boolean);
-        if (parts[0] === 'track' && parts[1]) return serveTrack(req, res, library, parts[1]);
+        if (parts[0] === 'track' && parts[1]) return void serveTrack(req, res, sources, parts[1]).catch(() => res.destroy());
+        if (parts[0] === 'nascover' && parts[1]) return void serveNasCover(req, res, u, sources, parts[1]).catch(() => res.destroy());
         if (parts[0] === 'art' && parts[1]) return serveArt(req, res, u, store, parts[1]);
         if (parts[0] === 'cover' && parts[1]) return serveCover(req, res, u, store, parts.slice(1).join('/'));
         return serveStatic(req, res, u.pathname);
