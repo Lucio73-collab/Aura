@@ -243,7 +243,8 @@ function trackFacts(t) {
     plays: S.counts[t.id] || 0,
     liked: S.liked.has(t.id),
     minutes: Math.round((t.duration || 0) / 60 * 10) / 10,
-    genre: t.genre || null
+    genre: t.genre || null,
+    bpm: t.bpm || null // only NAS songs carry it (OpenSubsonic), local files don't
   };
 }
 
