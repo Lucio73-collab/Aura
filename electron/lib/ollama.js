@@ -179,6 +179,7 @@ function describeTrack(label, t) {
   if (where) bits[0] += ` (${where})`;
   bits[0] += '.';
   if (t.year) { const age = new Date().getFullYear() - t.year; bits.push(age <= 0 ? 'It came out this year.' : age === 1 ? 'It came out last year.' : `It is ${age} years old.`); }
+  if (t.bpm) bits.push(`Tempo: about ${Math.round(t.bpm)} BPM.`);
   if (t.unreleased) bits.push('It is unreleased.');
   if (t.plays) bits.push(`You have played it ${t.plays} time${t.plays === 1 ? '' : 's'}.`);
   else if (label === 'Next song') bits.push('You have never played it in Aura.');

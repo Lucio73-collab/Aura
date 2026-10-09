@@ -1,11 +1,37 @@
-# Aura
+<p align="center">
+  <img src="docs/assets/banner.png" alt="Aura: local music player with a talking AI DJ" width="100%">
+</p>
 
-Local desktop music player. Apple Music looks, Spotify brains, a talking AI DJ, and it all runs off your own files. Nothing leaves your machine except an optional lyrics lookup.
+<p align="center">
+  Local desktop music player. Apple Music looks, Spotify brains, a talking AI DJ, and it all runs off your own files.
+  <br>
+  Nothing leaves your machine except an optional lyrics lookup.
+  <br><br>
+  <a href="https://github.com/Lucio73-collab/Aura/issues/new?template=bug_report.yml">Report bug</a>
+  ·
+  <a href="https://github.com/Lucio73-collab/Aura/issues/new?template=feature_request.yml">Request feature</a>
+  ·
+  <a href="https://github.com/Lucio73-collab/Aura/releases">Releases</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Lucio73-collab/Aura/actions/workflows/ci.yml"><img src="https://github.com/Lucio73-collab/Aura/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/version-1.0.0-a6e3a1?style=flat-square&labelColor=111111" alt="Version 1.0.0">
+  <img src="https://img.shields.io/badge/Electron-43-111111?style=flat-square&logo=electron" alt="Electron 43">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-333333?style=flat-square" alt="Windows and Linux">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-333333?style=flat-square" alt="MIT license"></a>
+</p>
+
+<!-- Screenshot: save a capture of the main window as docs/assets/screenshot.png, then remove this comment wrapper.
+<p align="center">
+  <img src="docs/assets/screenshot.png" alt="Aura main window" width="800">
+</p>
+-->
 
 ## Quick start
 
 1. Install Node.js LTS (nodejs.org) if you don't have it
-2. Unzip this folder, open a terminal inside it
+2. Get the code: `git clone https://github.com/Lucio73-collab/Aura.git && cd Aura`
 3. `npm install` (first run downloads Electron, takes a minute)
 4. `npm start`
 
@@ -42,6 +68,13 @@ Output lands in `release/`: an `Aura Setup 1.0.0.exe` installer plus a portable 
 - Artist pages sort by release date like Spotify, with a Latest Release hero
 - Tag editor saves edits inside Aura without touching files; optional "Write tags to MP3" if you want them baked in
 
+**NAS (Navidrome / Subsonic)**
+- Settings > NAS: server addresses (home first, then Tailscale), username and password. The password is stored encrypted by Windows, never in plain text
+- NAS songs, albums and playlists sit next to your local music, marked with a teal dot, and go through the same crossfade, automix, DJ and search
+- The NAS being off never affects local music: its items dim, a status dot shows online/offline, and shuffle and the DJ skip them
+- Plays are scrobbled to Navidrome, albums can be downloaded for offline, and an away quality (MP3) can be set for mobile data
+- Design notes and test checklist: `docs/nas-source-log.md`
+
 **Extras**
 - Liked Songs with heart everywhere
 - Synced lyrics view (Apple style): reads embedded tags, .lrc sidecars, or fetches from LRCLIB with one click
@@ -71,6 +104,21 @@ Everything Aura writes (playlists, likes, plays, custom albums, covers, lyrics, 
 
 Supported formats: mp3, m4a, aac, flac, wav, ogg, opus.
 
+## Tests
+
+```
+node scripts/gen-test-audio.js   # one time: tagged WAV fixtures in .test-music/
+npm test
+```
+
 ## Ideas for v1.1
 
 Discord Rich Presence, phone remote over Tailscale, last.fm scrobbling, visualizer.
+
+## Contributing
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
+
+## License
+
+Code released under the [MIT License](LICENSE).

@@ -1,5 +1,5 @@
 /* main.js — Electron main process for Aura */
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, globalShortcut, shell, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, globalShortcut, shell, screen, safeStorage, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -13,6 +13,10 @@ const stats = require('./lib/stats');
 const spotifyAuth = require('./lib/spotifyAuth');
 const spotify = require('./lib/spotify');
 const mediaServer = require('./lib/mediaServer');
+const sources = require('./lib/sources');
+const localSource = require('./lib/sources/localSource');
+const subsonicSource = require('./lib/sources/subsonicSource');
+const { maskSecrets } = require('./lib/subsonic');
 const importer = require('./lib/importer');
 const coverArt = require('./lib/coverArt');
 const { primaryArtist } = require('./lib/artistName');
@@ -24,6 +28,7 @@ let win = null;
 let mini = null;
 let tray = null;
 let httpServer = null;
+let nas = null; // SubsonicSource, the NAS (created at boot, see sources/subsonicSource.js)
 let origin = null; // http://127.0.0.1:<port>, set once the media server is up
 let lastState = { title: 'Not Playing', artist: '', playing: false, cover: null };
 
@@ -241,7 +246,15 @@ app.whenReady().then(async () => {
   app.setAppUserModelId('dev.lucio.aura'); // Windows only shows toast notifications for an app with an id
   spotifyAuth.init(store);
   spotify.init(store);
-  library.init(store, spotify);
+  // NAS credential is encrypted with the OS (DPAPI); never stored in plain text
+  nas = subsonicSource.create({
+    store,
+    secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: s => safeStorage.encryptString(s), decrypt: b => safeStorage.decryptString(b) },
+    log: (...a) => console.log(...a)
+  });
+  sources.register(localSource.create(library));
+  sources.register(nas);
+  library.init(store, spotify, sources);
   lyrics.init(store, library);
   ollama.init(store);
   tts.init(store);
@@ -249,12 +262,17 @@ app.whenReady().then(async () => {
   stats.init(store, library);
   spotifyAuth.onChange(st => { if (win) win.webContents.send('spotify-status', st); });
 
-  const srv = await mediaServer.start(store, library);
+  const srv = await mediaServer.start(store, library, sources);
   httpServer = srv.server;
   origin = 'http://127.0.0.1:' + srv.port;
 
   createWindow();
   const refreshTray = buildTray();
+
+  nas.onStatus(st => { if (win && !win.isDestroyed()) win.webContents.send('nas-status', st); });
+  nas.onLibraryChange(() => { if (win && !win.isDestroyed()) win.webContents.send('nas-library'); });
+  powerMonitor.on('resume', () => nas.onNetworkChange());
+  nas.start(); // connects in the background, a missing NAS never blocks startup
 
   ipcMain.on('state:update', (e, s) => {
     if ('id' in s && s.id !== lastState.id) lastState.pos = 0; // new song: the old position no longer applies
@@ -296,6 +314,7 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => { app.isQuitting = true; });
 app.on('will-quit', () => {
+  if (nas) nas.stop();
   store.flush();
   globalShortcut.unregisterAll();
   if (httpServer) httpServer.close();
@@ -320,6 +339,7 @@ H('lib:rescan', () => library.status().scanning ? library.status() : library.res
 H('app:reloadAll', async () => {
   store.reload();
   if (!library.status().scanning) await library.rescan();
+  if (nas && nas.isConfigured()) nas.connect().then(() => nas.syncLibrary()).catch(() => {});
   return library.getLibrary();
 });
 // Moves the file to the Recycle Bin (shell.trashItem, not a permanent
@@ -420,23 +440,33 @@ H('lib:importFiles', async (target, filePaths) => {
 
 /* ---------- IPC: playlists / liked ---------- */
 
-H('pl:list', () => store.playlists());
+// NAS playlists (ids "ndpl:<id>") live on the server and are edited there; every
+// other id is a local playlist in store.js. pl:list returns both.
+const isNasPl = id => String(id).startsWith('ndpl:');
+const allPlaylists = () => store.playlists().concat(sources.remotePlaylists());
+H('pl:list', () => allPlaylists());
 H('pl:create', (name) => store.plCreate(name));
-H('pl:update', (id, patch) => store.plUpdate(id, patch));
-H('pl:delete', (id) => store.plDelete(id));
-H('pl:add', (id, trackIds) => store.plAdd(id, trackIds));
-H('pl:remove', (id, trackId) => store.plRemove(id, trackId));
+H('pl:update', async (id, patch) => {
+  if (!isNasPl(id)) return store.plUpdate(id, patch);
+  let pl = null;
+  if (patch && typeof patch.name === 'string' && patch.name.trim()) pl = await nas.renamePlaylist(id, patch.name.trim());
+  if (patch && Array.isArray(patch.items)) pl = await nas.setPlaylistItems(id, patch.items.map(i => i.trackId));
+  return pl;
+});
+H('pl:delete', (id) => isNasPl(id) ? nas.deletePlaylist(id) : store.plDelete(id));
+H('pl:add', (id, trackIds) => isNasPl(id) ? nas.addToPlaylist(id, trackIds) : store.plAdd(id, trackIds));
+H('pl:remove', (id, trackId) => isNasPl(id) ? nas.removeFromPlaylist(id, trackId) : store.plRemove(id, trackId));
 H('pl:exportM3U', async (plId) => {
-  const pl = store.playlists().find(p => p.id === plId);
+  const pl = allPlaylists().find(p => p.id === plId);
   if (!pl) return { ok: false, error: 'Playlist not found' };
   const lib = library.getLibrary();
   const byId = new Map(lib.tracks.map(t => [t.id, t]));
   const lines = ['#EXTM3U'];
   let exported = 0, skipped = 0;
   for (const item of pl.items) {
-    // Spotify tracks (sp: ids) and anything missing its file on disk right
-    // now can't be referenced by a local M3U path, so they're just skipped
-    // rather than writing a broken entry.
+    // Spotify tracks (sp: ids), NAS tracks (nd: ids) and anything missing its
+    // file on disk right now can't be referenced by a local M3U path, so
+    // they're just skipped rather than writing a broken entry.
     const t = byId.get(item.trackId);
     const file = t && !item.trackId.startsWith('sp:') ? library.filePath(item.trackId) : null;
     if (!t || !file) { skipped++; continue; }
@@ -562,7 +592,10 @@ H('data:backup', async () => {
     store.flush();
     // thumbs/ is a regenerable cache of downscaled art, not curation
     const thumbs = path.join(store.dir(), 'thumbs');
-    fs.cpSync(store.dir(), dest, { recursive: true, filter: src => src !== thumbs });
+    // NAS downloads/art/library are regenerable (and can be huge), and the
+    // encrypted credential is bound to this Windows account: none of them belong in a backup
+    const skip = new Set(['nas-offline', 'nas-art', 'nas-library.json', 'nas-credential.bin', 'nas-scrobbles.json', 'nas-offline.json']);
+    fs.cpSync(store.dir(), dest, { recursive: true, filter: src => src !== thumbs && !skip.has(path.basename(src)) });
     return { ok: true, path: dest };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -572,6 +605,29 @@ H('data:backup', async () => {
 H('win:mini', () => { createMini(); if (win) win.minimize(); return true; });
 H('win:show', () => { showMain(); return true; });
 H('app:quit', () => { app.isQuitting = true; app.quit(); return true; });
+
+/* ---------- IPC: NAS (Subsonic / Navidrome) ----------
+   Like Spotify, failures come back as a plain { __nasError, code, message }
+   (thrown errors lose .code crossing the bridge). Messages are masked so a
+   credential can never travel in one. The credential itself only ever goes
+   renderer -> main (nas:setCredential / nas:test), never back. */
+const HN = (ch, fn) => ipcMain.handle(ch, async (e, ...a) => {
+  try { return await fn(...a); }
+  catch (err) { return { __nasError: true, code: err.code || 'UNKNOWN', message: maskSecrets(err.message || String(err)) }; }
+});
+HN('nas:status', () => nas.status());
+HN('nas:getConfig', () => nas.getConfig());
+HN('nas:setConfig', patch => nas.setConfig(patch));
+HN('nas:setCredential', secret => nas.setCredential(secret));
+HN('nas:forget', () => nas.forget());
+HN('nas:test', o => nas.test(o));
+HN('nas:refresh', force => nas.connect().then(() => nas.syncLibrary({ force: !!force })).then(() => nas.status()));
+HN('nas:search', q => nas.search(q));
+HN('nas:scrobble', (trackId, submission, time) => { nas.scrobble(trackId, { submission: submission !== false, time }); return true; });
+HN('nas:createPlaylist', (name, trackIds) => nas.createPlaylist(name, trackIds));
+HN('nas:download', albumId => nas.downloadAlbum(albumId));
+HN('nas:cancelDownload', () => { nas.cancelDownload(); return true; });
+HN('nas:removeDownload', albumId => nas.removeDownload(albumId));
 
 /* ---------- IPC: Spotify ----------
    Errors never throw across this boundary (Electron's structured clone drops

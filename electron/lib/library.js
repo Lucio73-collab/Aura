@@ -7,6 +7,7 @@ const { cleanTitle, titleFromFilename, trackNumberFromFilename, normalizeForKey 
 
 let store = null;
 let spotify = null;           // optional: electron/lib/spotify.js, for sp: track resolution
+let sources = null;           // optional: sources/index.js registry, for NAS (nd:) tracks
 let cacheFile = null;
 let cache = {};
 let raw = [];                 // scanned tracks (no overrides)
@@ -21,9 +22,10 @@ const AUDIO_EXT = new Set(['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.op
 // the affected file changes.
 const CACHE_VERSION = 11;
 
-function init(storeModule, spotifyModule) {
+function init(storeModule, spotifyModule, sourcesModule) {
   store = storeModule;
   spotify = spotifyModule || null;
+  sources = sourcesModule || null;
   cacheFile = path.join(store.dir(), 'library-cache.json');
   try {
     const loaded = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
@@ -319,8 +321,12 @@ function resolveSpotifyStubs(ov) {
 function getLibrary() {
   const ov = store.overrides();
 
-  // 1. apply per-track overrides (Spotify stubs never have local overrides)
-  const tracks = raw.map(t => ({ ...t, ...(ov.tracks[t.id] || {}) })).concat(resolveSpotifyStubs(ov));
+  // 1. apply per-track overrides (Spotify stubs never have local overrides).
+  // NAS tracks come from the source registry's metadata cache (no network)
+  // and are grouped into albums/artists exactly like scanned files; their
+  // album artist gets the same primary-credit normalization a scan applies.
+  const remote = sources ? sources.remoteTracks().map(t => ({ ...t, albumArtist: primaryCredit(t.albumArtist, t.album) })) : [];
+  const tracks = (remote.length ? raw.concat(remote) : raw).map(t => ({ ...t, ...(ov.tracks[t.id] || {}) })).concat(resolveSpotifyStubs(ov));
   const byId = new Map(tracks.map(t => [t.id, t]));
 
   // 2. which tracks are claimed by custom albums
@@ -337,14 +343,14 @@ function getLibrary() {
     if (!a) {
       const ao = ov.albums[t.albumKey] || {};
       a = {
-        id: t.albumKey, custom: false,
+        id: t.albumKey, custom: false, source: t.source || 'local',
         title: ao.title || t.album,
         artist: ao.artist || t.albumArtist,
-        releaseDate: ao.releaseDate || null,
-        type: ao.type || 'album',
+        releaseDate: ao.releaseDate || t.albumReleaseDate || null,
+        type: ao.type || t.albumType || 'album',
         unreleased: !!ao.unreleased,
         artFetchTried: !!ao.artFetchTried,
-        cover: ao.coverFile ? ('/cover/' + ao.coverFile) : (t.hasArt ? ('/art/' + t.albumKey) : null),
+        cover: ao.coverFile ? ('/cover/' + ao.coverFile) : (t.hasArt ? ('/art/' + t.albumKey) : (t.source === 'navidrome' ? t.cover : null)),
         trackIds: [], dateAdded: 0, year: t.year || null
       };
       albums.set(t.albumKey, a);
@@ -367,9 +373,9 @@ function getLibrary() {
     const ids = ca.trackIds.filter(id => byId.has(id));
     const claimedTracks = ids.map(id => byId.get(id));
     const firstArt = claimedTracks.find(t => t.hasArt);
-    const firstSpotifyCover = claimedTracks.find(t => t.source === 'spotify' && t.cover);
+    const firstSpotifyCover = claimedTracks.find(t => (t.source === 'spotify' || t.source === 'navidrome') && t.cover);
     albums.set(ca.id, {
-      id: ca.id, custom: true,
+      id: ca.id, custom: true, source: 'local',
       title: ca.title || 'Untitled',
       artist: ca.artist || 'Unknown Artist',
       releaseDate: ca.releaseDate || null,
@@ -419,8 +425,9 @@ function getLibrary() {
       artistKey: a ? a.artist : primaryCredit(t.artist, t.albumKey.startsWith('sgl-') ? null : t.album),
       // every individually credited name (primary + features), for crediting
       // featured artists on their own page without changing who "owns" the track
-      artists: realCredits(t.artist, t.albumKey.startsWith('sgl-') ? null : t.album),
-      cover: a && a.cover ? a.cover : (t.hasArt ? '/art/' + t.albumKey : null)
+      // (the NAS already tells us who is credited, no need to re-split a display string)
+      artists: t.source === 'navidrome' && t.artists ? t.artists : realCredits(t.artist, t.albumKey.startsWith('sgl-') ? null : t.album),
+      cover: a && a.cover ? a.cover : (t.hasArt ? '/art/' + t.albumKey : (t.cover || null))
     };
   });
 

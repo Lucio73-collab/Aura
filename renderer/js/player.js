@@ -11,6 +11,7 @@ const P = {
 };
 
 const cur = () => S.byId.get(P.currentId);
+let nasSkips = 0; // consecutive NAS songs skipped because they were unreachable
 // declusteredShuffle (core.js) spreads the same artist out instead of a plain
 // random shuffle, which frequently clusters an artist's tracks back to back
 const shuffled = arr => declusteredShuffle(arr);
@@ -44,7 +45,7 @@ async function restoreSession() {
   let sess;
   try { sess = await window.aura.sessionGet(); } catch { return; }
   const t = sess && sess.trackId && S.byId.get(sess.trackId);
-  if (!t || t.source === 'spotify') return; // no "preload paused" over Spotify Connect - see Playback.loadPaused
+  if (!t || t.source === 'spotify' || isUnavailable(t)) return; // no "preload paused" over Spotify Connect - see Playback.loadPaused
   const ctx = sess.ctx;
   const ids = (ctx && Array.isArray(ctx.ids) ? ctx.ids.filter(id => S.byId.has(id)) : []);
   if (!ids.length) ids.push(t.id);
@@ -151,7 +152,7 @@ function autoplayRefill() {
   const seeds = trackList(P.ctx.ids.slice(-8));
   const exclude = new Set([...P.ctx.ids, ...P.manual]);
   let picks = recommend(seeds, exclude, 6);
-  if (!picks.length) picks = shuffled(S.tracks.filter(t => !exclude.has(t.id))).slice(0, 6);
+  if (!picks.length) picks = shuffled(S.tracks.filter(t => !exclude.has(t.id) && !isUnavailable(t))).slice(0, 6);
   if (!picks.length) return;
   P.ctx.ids.push(...picks.map(t => t.id));
   P.ctx.originalIds.push(...picks.map(t => t.id));
@@ -227,6 +228,11 @@ function openSleepMenu() {
 function playFrom(ids, index, meta) {
   if (!ids || !ids.length) return;
   index = Math.max(0, Math.min(index, ids.length - 1));
+  // a shuffle picks its own starting song: never one that can't be played right now (NAS offline)
+  if (P.shuffle && isUnavailable(S.byId.get(ids[index]))) {
+    const ok = ids.map((id, i) => i).filter(i => !isUnavailable(S.byId.get(ids[i])));
+    if (ok.length) index = ok[Math.floor(Math.random() * ok.length)];
+  }
   P.dj = meta.sourceType === 'dj';
   if (!P.dj && DJ.active) DJ.stop(true);
   buildContext(ids, ids[index], meta);
@@ -266,6 +272,7 @@ function onStarted(id) {
   const t = cur();
   if (t) {
     if (t.source === 'spotify') refreshSpotifyLiked([t]);
+    if (t.source === 'navidrome') { nasSkips = 0; window.aura.nasScrobble(t.id, false).catch(() => {}); } // "now playing" on the NAS
     updateNowPlayingUI(t);
     updateMediaSession(t);
     loadLyricsFor(t);
@@ -463,7 +470,11 @@ function tickListen() {
   if (!P.playing) return;
   if (d > 0 && d < 2000) P.listenMs += d;
   const t = cur();
-  if (!P.counted && t && (P.listenMs > t.duration * 400 || P.listenMs > 45000)) P.counted = true;
+  if (!P.counted && t && (P.listenMs > t.duration * 400 || P.listenMs > 45000)) {
+    P.counted = true;
+    // a real listen: NAS songs count on the server too (Navidrome play counts)
+    if (t.source === 'navidrome') window.aura.nasScrobble(t.id, true, Date.now() - Math.round(P.listenMs)).catch(() => {});
+  }
 }
 
 function finalizeListen() {
@@ -806,6 +817,30 @@ Playback.on('playstate', p => { P.playing = p; P.lastTick = performance.now(); s
 Playback.on('stopped', () => {
   finalizeListen(); P.playing = false; setPlayingState(false); broadcastState();
   if (sleepAtTrackEnd) { sleepAtTrackEnd = false; syncSleepUI(); toast('Sleep timer: stopped after this song'); }
+});
+/* A NAS song that can't be played (NAS unreachable and not downloaded, or its
+   stream failed / stalled). Something the listener picked directly just says
+   so; during normal playback the running order moves on to the next song so
+   one missing file never ends the session. */
+Playback.on('unavailable', (t, why) => {
+  const msg = why === 'offline' ? `"${t.title}" is on the NAS, which isn't reachable right now`
+    : why === 'slow' ? `"${t.title}" took too long to load from the NAS`
+    : `Couldn't play "${t.title}" from the NAS`;
+  if (why === 'preload') { // only the preloaded next song failed: drop it and line up the one after, no audible gap
+    toast(`"${t.title}" couldn't be loaded from the NAS, skipping it`);
+    if (P.manual[0] === t.id) P.manual.shift();
+    else { const i = P.ctx.ids.indexOf(t.id, P.ctx.pos + 1); if (i > -1) P.ctx.ids.splice(i, 1); }
+    scheduleUpcoming(); renderQueue();
+    return;
+  }
+  if (P.expectDirect === t.id) { P.expectDirect = null; toast(msg); return; }
+  if (why === 'failed' && !P.playing) return; // e.g. a paused session restore: never start sound on our own
+  if (++nasSkips > 40) { nasSkips = 0; toast(msg); Playback.stop(); return; }
+  toast(msg + ', skipping');
+  if (P.manual[0] === t.id) P.manual.shift();
+  else { const i = P.ctx.ids.indexOf(t.id, P.ctx.pos); if (i > -1) P.ctx.pos = i; }
+  if (!peekNext(true)) { finalizeListen(); Playback.stop(); return; }
+  next(true);
 });
 Playback.on('error', e => {
   if (spSilentError(e)) return;

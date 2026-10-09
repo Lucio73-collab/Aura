@@ -142,11 +142,12 @@ module.exports = {
 
   settings: () => mem.settings,
   setSettings(patch) { Object.assign(mem.settings, patch || {}); save('settings'); return mem.settings; },
-  // Back to defaults for preferences only: library folders, the DJ model
-  // pick, volume/repeat and window placement are state, not preferences.
+  // Back to defaults for preferences only: library folders, the NAS server
+  // setup, the DJ model pick, volume/repeat and window placement are state,
+  // not preferences.
   resetSettings() {
     const keep = {};
-    for (const k of ['musicFolders', 'djModel', 'djModelChosen', 'volume', 'repeat', 'windowBounds', 'miniBounds', 'lastRoute']) {
+    for (const k of ['musicFolders', 'nas', 'djModel', 'djModelChosen', 'volume', 'repeat', 'windowBounds', 'miniBounds', 'lastRoute']) {
       if (k in mem.settings) keep[k] = mem.settings[k];
     }
     mem.settings = { ...JSON.parse(JSON.stringify(DEFAULTS.settings)), ...keep };
